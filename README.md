@@ -2,6 +2,10 @@
 
 A python implementation for this [project](https://github.com/KohakuBlueleaf/PixelOE-matlab).
 
+**No AI**
+**No NN**
+**GPU Free**
+
 ## Example
 
 | Before             | After　             |
