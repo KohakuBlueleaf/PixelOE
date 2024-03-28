@@ -10,11 +10,7 @@ setup(
     author="Shih-Ying Yeh(KohakuBlueLeaf)",
     author_email="apolloyeh0123@gmail.com",
     zip_safe=False,
-    install_requires=[
-        "opencv-python",
-        "numpy",
-        "pillow"
-    ],
+    install_requires=["opencv-python", "numpy", "pillow"],
     entry_points={"console_scripts": ["pixeloe.pixelize=pixeloe.cli:main"]},
     python_requires=">=3.10",
 )

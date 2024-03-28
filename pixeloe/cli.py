@@ -24,6 +24,7 @@ def main():
     from PIL import Image
 
     from . import pixelize
+
     img = Image.open(args.input_img)
     img = np.array(img)
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
@@ -40,7 +41,8 @@ def main():
     )
     if args.output_img is None:
         args.output_img = os.path.join(
-            os.path.dirname(args.input_img), f"output_{os.path.basename(args.input_img)}"
+            os.path.dirname(args.input_img),
+            f"output_{os.path.basename(args.input_img)}",
         )
         print(f"Output image: {args.output_img}")
     data = cv2.imencode(os.path.splitext(args.output_img)[1], img)[1].tobytes()
