@@ -16,7 +16,29 @@ You can install this package through `pip`:
 pip install pixeloe
 ```
 
-And then import it in your code:
+And then use cli to run the command:
+```
+pixeloe.pixelize --help
+```
+
+Which should give you this message:
+```
+usage: pixeloe.pixelize [-h] [--output_img OUTPUT_IMG] [--target_size TARGET_SIZE] [--patch_size PATCH_SIZE] [--thickness THICKNESS]
+                        [--color_matching] [--contrast CONTRAST] [--saturation SATURATION] [--colors COLORS] [--no_upscale]
+                        input_img
+
+positional arguments:
+  input_img
+```
+
+For example
+```
+pixeloe.pixelize img/test.png --output_img img/test2.png --target_size 256 --patch_size 8
+```
+
+---
+
+Or you can import it into your code:
 
 ```python
 import cv2
