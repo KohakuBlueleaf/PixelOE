@@ -7,7 +7,7 @@ from .utils import sigmoid, apply_chunk
 
 
 def expansion_weight(img, k=16, avg_scale=10, dist_scale=3):
-    img_y = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)[:, :, 0] / 255
+    img_y = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)[:, :, 0] / 255
     avg_y = apply_chunk(img_y, k * 3, k, partial(np.median, axis=1, keepdims=True))
     max_y = apply_chunk(img_y, k, k, partial(np.max, axis=1, keepdims=True))
     min_y = apply_chunk(img_y, k, k, partial(np.min, axis=1, keepdims=True))

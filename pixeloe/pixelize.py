@@ -34,7 +34,7 @@ def pixelize(
     if color_matching:
         img = match_color(img, org_img)
 
-    img_lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+    img_lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     img_lab[:, :, 0] = apply_chunk(
         img_lab[:, :, 0],
         patch_size,
@@ -53,7 +53,7 @@ def pixelize(
         patch_size,
         partial(np.median, axis=1, keepdims=True),
     )
-    img = cv2.cvtColor(img_lab, cv2.COLOR_LAB2RGB)
+    img = cv2.cvtColor(img_lab, cv2.COLOR_LAB2BGR)
 
     img_sm = cv2.resize(
         img,
@@ -61,7 +61,7 @@ def pixelize(
         interpolation=cv2.INTER_NEAREST,
     )
 
-    if contrast != 1.0 or saturation != 1.0:
+    if contrast != 1 or saturation != 1:
         img_sm = color_styling(img_sm, saturation, contrast)
 
     if no_upscale:

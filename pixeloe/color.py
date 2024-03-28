@@ -4,12 +4,12 @@ import cv2
 
 def match_color(source, target):
     # Convert RGB to L*a*b*, and then match the std/mean
-    source_lab = cv2.cvtColor(source, cv2.COLOR_RGB2LAB).astype(np.float32) / 255
-    target_lab = cv2.cvtColor(target, cv2.COLOR_RGB2LAB).astype(np.float32) / 255
+    source_lab = cv2.cvtColor(source, cv2.COLOR_BGR2LAB).astype(np.float32) / 255
+    target_lab = cv2.cvtColor(target, cv2.COLOR_BGR2LAB).astype(np.float32) / 255
     result = (source_lab - np.mean(source_lab)) / np.std(source_lab)
     result = result * np.std(target_lab) + np.mean(target_lab)
     source = cv2.cvtColor(
-        (result * 255).clip(0, 255).astype(np.uint8), cv2.COLOR_LAB2RGB
+        (result * 255).clip(0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR
     )
 
     source = source.astype(np.float32)
@@ -46,9 +46,9 @@ def wavelet_blur(input, radius):
 
 def color_styling(input, saturation=1.2, contrast=1.1):
     output = input.copy()
-    output = cv2.cvtColor(output, cv2.COLOR_RGB2HSV)
+    output = cv2.cvtColor(output, cv2.COLOR_BGR2HSV)
     output[:, :, 1] = output[:, :, 1] * saturation
     output[:, :, 2] = output[:, :, 2] * contrast - (contrast - 1)
     output = np.clip(output, 0, 1)
-    output = cv2.cvtColor(output, cv2.COLOR_HSV2RGB)
+    output = cv2.cvtColor(output, cv2.COLOR_HSV2BGR)
     return output
