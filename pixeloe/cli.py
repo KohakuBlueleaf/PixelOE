@@ -10,8 +10,8 @@ def parse_args():
         "--mode",
         "-M",
         type=str,
-        default="center",
-        choices=["center", "contrast-based", "k-centroid", "bicubic", "nearest"],
+        default="contrast",
+        choices=["center", "contrast", "k-centroid", "bicubic", "nearest"],
     )
     parser.add_argument("--target_size", "-S", type=int, default=256)
     parser.add_argument("--patch_size", "-P", type=int, default=6)

@@ -8,6 +8,6 @@ downscale_mode = {
     "bicubic": bicubic,
     "nearest": nearest,
     "center": center_downscale,
-    "contrast-based": contrast_based_downscale,
+    "contrast": contrast_based_downscale,
     "k-centroid": k_centroid_downscale,
 }
