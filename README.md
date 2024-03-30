@@ -104,6 +104,8 @@ The Contrast-Aware Outline Expansion ensures that fine details and sharp edges a
 By integrating this outline expansion with an effective downscaling strategy and optional color palette optimization, the full pixelization pipeline is able to generate attractive pixel-style artwork from high resolution images. The intentional emphasis on important visual elements sets this approach apart from direct downsampling methods.
 
 ## Acknowledgement
+* Astropulse
+  * k-centorid downscaling algorithm.
 * Claude 3 opus: 
   * Summarize the algorithm.
   * Convert some matlab code to python.
