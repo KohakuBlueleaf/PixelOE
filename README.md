@@ -8,9 +8,15 @@ A python implementation for this [project](https://github.com/KohakuBlueleaf/Pix
 
 ## Example
 
-| Original | center | k-centroid |
-| ------------------ | ------------------- | ------------------- |
-| <img src="img/test.png" width="350" /> | <img src="img/test2.png" width="350" /> | <img src="img/test3.png" width="350" /> |
+|| Original | nearest | bicubic | center | k-centroid |
+|-| ------------------ | ------------------- | ------------------- |
+| Without Outline Expansion| <img src="img/dragon-girl.png" width="350" /> |<img src="demo/dragon-girl-t0-nearest.png" width="350" />|<img src="demo/dragon-girl-t0-bicubic.png" width="350" />|<img src="demo/dragon-girl-t0-center.png" width="350" />|<img src="demo/dragon-girl-t0-k-centroid.png" width="350" />|
+| With Outline Expansion| <img src="img/dragon-girl.png" width="350" /> |<img src="demo/dragon-girl-t1-nearest.png" width="350" />|<img src="demo/dragon-girl-t1-bicubic.png" width="350" />|<img src="demo/dragon-girl-t1-center.png" width="350" />|<img src="demo/dragon-girl-t1-k-centroid.png" width="350" />|
+
+|| Original | nearest | bicubic | center | k-centroid |
+|-| ------------------ | ------------------- | ------------------- |
+| Without Outline Expansion| <img src="img/house.png" width="350" /> |<img src="demo/house-t0-nearest.png" width="350" />|<img src="demo/house-t0-bicubic.png" width="350" />|<img src="demo/house-t0-center.png" width="350" />|<img src="demo/house-t0-k-centroid.png" width="350" />|
+| With Outline Expansion| <img src="img/house.png" width="350" /> |<img src="demo/house-t2-nearest.png" width="350" />|<img src="demo/house-t2-bicubic.png" width="350" />|<img src="demo/house-t2-center.png" width="350" />|<img src="demo/house-t2-k-centroid.png" width="350" />|
 
 ## Usage
 
