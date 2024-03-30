@@ -11,11 +11,11 @@ def parse_args():
         "-M",
         type=str,
         default="center",
-        choices=["center", "contrast-based", "k-centroid"],
+        choices=["center", "contrast-based", "k-centroid", "bicubic", "nearest"],
     )
-    parser.add_argument("--target_size", "-S", type=int, default=128)
-    parser.add_argument("--patch_size", "-P", type=int, default=12)
-    parser.add_argument("--thickness", "-T", type=int, default=2)
+    parser.add_argument("--target_size", "-S", type=int, default=256)
+    parser.add_argument("--patch_size", "-P", type=int, default=6)
+    parser.add_argument("--thickness", "-T", type=int, default=1)
     parser.add_argument("--color_matching", action="store_true")
     parser.add_argument("--contrast", type=float, default=1.0)
     parser.add_argument("--saturation", type=float, default=1.0)
