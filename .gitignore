@@ -1,4 +1,5 @@
-# test
+# test/demo
+*.psd
 test*.py
 
 # Editors
