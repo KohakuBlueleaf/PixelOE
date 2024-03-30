@@ -6,6 +6,23 @@ import cv2
 from ..utils import apply_chunk
 
 
+def find_pixel(chunks):
+    mid = chunks[..., chunks.shape[-1]//2][..., np.newaxis]
+    med = np.median(chunks, axis=1, keepdims=True)
+    mu = np.mean(chunks, axis=1, keepdims=True)
+    maxi = np.max(chunks, axis=1, keepdims=True)
+    mini = np.min(chunks, axis=1, keepdims=True)
+
+    output = mid
+    mini_loc = (med < mu) & (maxi - med > med - mini)
+    maxi_loc = (med > mu) & (maxi - med < med - mini)
+
+    output[mini_loc] = mini[mini_loc]
+    output[maxi_loc] = maxi[maxi_loc]
+
+    return output
+
+
 def contrast_based_downscale(
     img,
     target_size=128,
@@ -22,7 +39,7 @@ def contrast_based_downscale(
         img_lab[:, :, 0],
         patch_size,
         patch_size,
-        lambda x: x[..., x.shape[-1] // 2][..., None],
+        find_pixel
     )
     img_lab[:, :, 1] = apply_chunk(
         img_lab[:, :, 1],
@@ -32,7 +49,7 @@ def contrast_based_downscale(
     )
     img_lab[:, :, 2] = apply_chunk(
         img_lab[:, :, 2],
-        patch_size,
+        patch_size*2,
         patch_size,
         partial(np.median, axis=1, keepdims=True),
     )
