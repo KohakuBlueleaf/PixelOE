@@ -14,9 +14,7 @@ def apply_chunk(data, kernel, stride, func):
         data = data[np.newaxis, np.newaxis, ...]
 
     data = (
-        F.unfold(torch.tensor(data), kernel, 1, 0, stride)
-        .transpose(-1, -2)[0]
-        .numpy()
+        F.unfold(torch.tensor(data), kernel, 1, 0, stride).transpose(-1, -2)[0].numpy()
     )
     data[..., : stride**2] = func(data)
     data = data[np.newaxis, ..., : stride**2]

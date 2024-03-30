@@ -7,7 +7,7 @@ from ..utils import apply_chunk
 
 
 def find_pixel(chunks):
-    mid = chunks[..., chunks.shape[-1]//2][..., np.newaxis]
+    mid = chunks[..., chunks.shape[-1] // 2][..., np.newaxis]
     med = np.median(chunks, axis=1, keepdims=True)
     mu = np.mean(chunks, axis=1, keepdims=True)
     maxi = np.max(chunks, axis=1, keepdims=True)
@@ -35,12 +35,7 @@ def contrast_based_downscale(
     patch_size = max(int(round(H // target_hw[1])), int(round(W // target_hw[0])))
 
     img_lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
-    img_lab[:, :, 0] = apply_chunk(
-        img_lab[:, :, 0],
-        patch_size,
-        patch_size,
-        find_pixel
-    )
+    img_lab[:, :, 0] = apply_chunk(img_lab[:, :, 0], patch_size, patch_size, find_pixel)
     img_lab[:, :, 1] = apply_chunk(
         img_lab[:, :, 1],
         patch_size,
@@ -49,7 +44,7 @@ def contrast_based_downscale(
     )
     img_lab[:, :, 2] = apply_chunk(
         img_lab[:, :, 2],
-        patch_size*2,
+        patch_size * 2,
         patch_size,
         partial(np.median, axis=1, keepdims=True),
     )
