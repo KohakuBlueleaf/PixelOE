@@ -8,9 +8,11 @@ A python implementation for this [project](https://github.com/KohakuBlueleaf/Pix
 
 ## Example
 
-![dragon-girl-grid](demo/dragon-girl-grid.png)
-
 ![house-grid](demo/house-grid.png)
+
+![horse-girl-grid](demo/horse-girl-grid.png)
+
+![dragon-girl-grid](demo/dragon-girl-grid.png)
 
 ## Usage
 
