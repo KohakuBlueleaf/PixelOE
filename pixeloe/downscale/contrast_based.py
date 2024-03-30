@@ -44,7 +44,7 @@ def contrast_based_downscale(
     )
     img_lab[:, :, 2] = apply_chunk(
         img_lab[:, :, 2],
-        patch_size * 2,
+        patch_size,
         patch_size,
         partial(np.median, axis=1, keepdims=True),
     )
