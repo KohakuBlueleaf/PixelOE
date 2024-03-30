@@ -9,11 +9,12 @@ def apply_chunk(data, kernel, stride, func):
     unfold_shape = org_shape
     k_shift = max(kernel - stride, 0) // 2
 
+    data = np.pad(data, ((k_shift, k_shift), (k_shift, k_shift)), "edge")
     if len(org_shape) == 2:
         data = data[np.newaxis, np.newaxis, ...]
 
     data = (
-        F.unfold(torch.tensor(data), kernel, 1, k_shift, stride)
+        F.unfold(torch.tensor(data), kernel, 1, 0, stride)
         .transpose(-1, -2)[0]
         .numpy()
     )
