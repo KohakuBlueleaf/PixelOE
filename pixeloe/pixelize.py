@@ -18,6 +18,7 @@ def pixelize(
     saturation=1.0,
     colors=None,
     no_upscale=False,
+    no_downscale=False,
 ):
     H, W, C = img.shape
 
@@ -34,6 +35,8 @@ def pixelize(
     if color_matching:
         img = match_color(img, org_img)
 
+    if no_downscale:
+        return img
     img_sm = downscale_mode[mode](img, target_size)
 
     if contrast != 1 or saturation != 1:

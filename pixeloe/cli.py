@@ -16,11 +16,12 @@ def parse_args():
     parser.add_argument("--target_size", "-S", type=int, default=256)
     parser.add_argument("--patch_size", "-P", type=int, default=6)
     parser.add_argument("--thickness", "-T", type=int, default=1)
-    parser.add_argument("--color_matching", action="store_true")
+    parser.add_argument("--no_color_matching", action="store_true")
     parser.add_argument("--contrast", type=float, default=1.0)
     parser.add_argument("--saturation", type=float, default=1.0)
     parser.add_argument("--colors", type=int, default=None)
     parser.add_argument("--no_upscale", action="store_true")
+    parser.add_argument("--no_downscale", action="store_true")
     return parser.parse_args()
 
 
@@ -41,11 +42,12 @@ def main():
         args.target_size,
         args.patch_size,
         args.thickness,
-        args.color_matching,
+        not args.no_color_matching,
         args.contrast,
         args.saturation,
         args.colors,
         args.no_upscale,
+        args.no_downscale,
     )
     if args.output_img is None:
         args.output_img = os.path.join(
