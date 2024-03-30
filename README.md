@@ -8,9 +8,9 @@ A python implementation for this [project](https://github.com/KohakuBlueleaf/Pix
 
 ## Example
 
-| Before             | After　             |
-| ------------------ | ------------------- |
-| ![img](img/test.png) | ![img](img/test2.png) |
+| Original | contrast-based | k-centroid |
+| ------------------ | ------------------- | ------------------- |
+| <img src="img/test.png" width="350" /> | <img src="img/test2.png" width="350" /> | <img src="img/test3.png" width="350" /> |
 
 ## Usage
 
