@@ -36,9 +36,9 @@ pixeloe.pixelize --help
 
 Which should give you this message:
 ```
-usage: pixeloe.pixelize [-h] [--output_img OUTPUT_IMG] [--mode {contrast-based,k-centroid}] [--target_size TARGET_SIZE]
-                        [--patch_size PATCH_SIZE] [--thickness THICKNESS] [--color_matching] [--contrast CONTRAST]
-                        [--saturation SATURATION] [--colors COLORS] [--no_upscale]
+usage: pixeloe.pixelize [-h] [--output_img OUTPUT_IMG] [--mode {center,contrast,k-centroid,bicubic,nearest}] [--target_size TARGET_SIZE]
+                        [--patch_size PATCH_SIZE] [--thickness THICKNESS] [--no_color_matching] [--contrast CONTRAST]
+                        [--saturation SATURATION] [--colors COLORS] [--no_upscale] [--no_downscale]
                         input_img
 
 positional arguments:
@@ -47,15 +47,16 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --output_img OUTPUT_IMG, -O OUTPUT_IMG
-  --mode {contrast-based,k-centroid}, -M {contrast-based,k-centroid}
+  --mode {center,contrast,k-centroid,bicubic,nearest}, -M {center,contrast,k-centroid,bicubic,nearest}
   --target_size TARGET_SIZE, -S TARGET_SIZE
   --patch_size PATCH_SIZE, -P PATCH_SIZE
   --thickness THICKNESS, -T THICKNESS
-  --color_matching
+  --no_color_matching
   --contrast CONTRAST
   --saturation SATURATION
   --colors COLORS
   --no_upscale
+  --no_downscale
 ```
 
 For example
