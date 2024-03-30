@@ -6,6 +6,13 @@ def parse_args():
     parser = ArgumentParser()
     parser.add_argument("input_img", type=str)
     parser.add_argument("--output_img", "-O", type=str, default=None)
+    parser.add_argument(
+        "--mode",
+        "-M",
+        type=str,
+        default="contrast-based",
+        choices=["contrast-based", "k-centroid"],
+    )
     parser.add_argument("--target_size", "-S", type=int, default=128)
     parser.add_argument("--patch_size", "-P", type=int, default=12)
     parser.add_argument("--thickness", "-T", type=int, default=2)
@@ -30,6 +37,7 @@ def main():
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img = pixelize(
         img,
+        args.mode,
         args.target_size,
         args.patch_size,
         args.thickness,
