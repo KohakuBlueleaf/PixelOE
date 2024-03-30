@@ -7,7 +7,7 @@ def parse_args():
     parser.add_argument("input_img", type=str)
     parser.add_argument("--output_img", "-O", type=str, default=None)
     parser.add_argument("--target_size", "-S", type=int, default=128)
-    parser.add_argument("--patch_size", '-P', type=int, default=12)
+    parser.add_argument("--patch_size", "-P", type=int, default=12)
     parser.add_argument("--thickness", "-T", type=int, default=2)
     parser.add_argument("--color_matching", action="store_true")
     parser.add_argument("--contrast", type=float, default=1.0)

@@ -35,7 +35,9 @@ kernel_smoothing = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]).astype(np.uint8)
 
 
 def outline_expansion(img, erode=2, dilate=2, k=16, avg_scale=10, dist_scale=3):
-    weight = expansion_weight(img, k, (k//4)*2, avg_scale, dist_scale)[..., np.newaxis]
+    weight = expansion_weight(img, k, (k // 4) * 2, avg_scale, dist_scale)[
+        ..., np.newaxis
+    ]
     orig_weight = sigmoid((weight - 0.5) * 5) * 0.25
 
     img_erode = img.copy()
