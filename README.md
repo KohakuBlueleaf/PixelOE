@@ -8,7 +8,7 @@ A python implementation for this [project](https://github.com/KohakuBlueleaf/Pix
 
 ## Example
 
-| Original | contrast-based | k-centroid |
+| Original | center | k-centroid |
 | ------------------ | ------------------- | ------------------- |
 | <img src="img/test.png" width="350" /> | <img src="img/test2.png" width="350" /> | <img src="img/test3.png" width="350" /> |
 
