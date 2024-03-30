@@ -14,6 +14,13 @@ A python implementation for this [project](https://github.com/KohakuBlueleaf/Pix
 
 ![dragon-girl-grid](demo/dragon-girl-grid.png)
 
+### Use outline expansion to improve existing method
+Use the outline expansion method can improve lot of existing pixelization method.
+Even the Neural Network based method can also be improved:
+
+Here is the example of using outline expansion to improve "Make Your Own Sprites: Aliasing-Aware and Cell-Controllable Pixelization"(SIGGRAPH Asia 2022)
+![make-your-own-sprites](demo/house-make-your-own-sprites.png)
+
 ## Usage
 
 You can install this package through `pip`:
