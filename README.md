@@ -148,3 +148,16 @@ The Contrast-Based Downsampling approach, particularly its adaptive luminance pr
 * Claude 3 opus:
   * Summarize the algorithm.
   * Convert some matlab code to python.
+
+
+## Citation
+
+```bibtex
+@misc{PixelOE,
+    title={Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion.}, 
+    author={Shin-Ying Yeh},
+    year={2024},
+    month={March},
+    howpublished=\url{https://github.com/KohakuBlueleaf/PixelOE},
+}
+```
