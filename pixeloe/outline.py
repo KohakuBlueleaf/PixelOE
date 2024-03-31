@@ -61,7 +61,7 @@ def outline_expansion(img, erode=2, dilate=2, k=16, avg_scale=10, dist_scale=3):
 
 
 if __name__ == "__main__":
-    img = cv2.imread("img/test.png")
+    img = cv2.imread("img/dragon-girl.png")
     H, W, C = img.shape
     ratio = W / H
     target_pixel_count = (1024**2 / ratio) ** 0.5
@@ -70,13 +70,29 @@ if __name__ == "__main__":
     weight_mat = expansion_weight(img, 8, 2, 9, 3)
     img_out = outline_expansion(img, 1, 1)
 
+    edge = img_out - img
+    edge = (edge + 255) / 2
+    edge[np.abs(edge - 127) >= 30] = 0
+    edge[np.abs(edge - 127) < 30] = 255
+    edge = cv2.cvtColor(edge.astype(np.uint8), cv2.COLOR_BGR2GRAY) / 255
+
     # show the weight mat and output in matplotlib in same window
     import matplotlib.pyplot as plt
 
-    plt.subplot(1, 3, 1)
+    plt.subplot(1, 4, 1)
     plt.imshow(img)
-    plt.subplot(1, 3, 2)
-    plt.imshow(weight_mat)
-    plt.subplot(1, 3, 3)
+    plt.axis("off")
+    plt.title("input")
+    plt.subplot(1, 4, 2)
     plt.imshow(img_out)
+    plt.axis("off")
+    plt.title("output")
+    plt.subplot(1, 4, 3)
+    plt.imshow(weight_mat, cmap="gray")
+    plt.axis("off")
+    plt.title("weight")
+    plt.subplot(1, 4, 4)
+    plt.imshow(edge, cmap="gray")
+    plt.axis("off")
+    plt.title("edge")
     plt.show()
