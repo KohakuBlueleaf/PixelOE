@@ -9,7 +9,7 @@ from .outline import outline_expansion
 
 def pixelize(
     img,
-    mode="contrast-based",
+    mode="contrast",
     target_size=128,
     patch_size=16,
     thickness=2,
@@ -51,11 +51,11 @@ def pixelize(
 
 if __name__ == "__main__":
     t0 = time()
-    img = cv2.imread("img/test.png")
+    img = cv2.imread("img/house.png")
     t1 = time()
-    img = pixelize(img, 256, patch_size=8)
+    img = pixelize(img, target_size=128, patch_size=8)
     t2 = time()
-    cv2.imwrite("img/test2.png", img)
+    cv2.imwrite("test.png", img)
     t3 = time()
 
     print(f"read time: {t1 - t0:.3f}sec")
