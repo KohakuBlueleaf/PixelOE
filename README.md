@@ -73,7 +73,7 @@ import cv2
 from pixeloe import pixelize
 
 img = cv2.imread("img/test.png")
-img = pixelize(img, 256, patch_size=8)
+img = pixelize(img, target_size=256, patch_size=8)
 cv2.imwrite("img/test2.png", img)
 ```
 
