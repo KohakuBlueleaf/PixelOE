@@ -9,7 +9,7 @@ from .outline import outline_expansion
 
 def pixelize(
     img,
-    mode="contrast-based",
+    mode="contrast",
     target_size=128,
     patch_size=16,
     thickness=2,
