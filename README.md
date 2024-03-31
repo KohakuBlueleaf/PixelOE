@@ -88,10 +88,6 @@ There are 2 main component of this algorithm:
 1. Outline Expansion
 2. Contrast-based downscale
 
-* Not implemented yet, need more tweak and experiments.
-
-Since we have lot of different algorithm for downscale and basically they are better than mine, I will only focus on Outline Expansion part in this section.
-
 ### Outline Expansion
 
 The goal of Outline Expansion is to expand important small details and high contrast edges in the image before downscaling, so that they are not lost in the final low resolution pixel art. The key steps are:
@@ -117,6 +113,33 @@ The goal of Outline Expansion is to expand important small details and high cont
 The Contrast-Aware Outline Expansion ensures that fine details and sharp edges are broadened before the subsequent downscaling step. This allows them to be represented at the final low target resolution rather than being lost entirely. The selective erosion and dilation based on local contrast helps expand the right regions while preserving overall sharpness.
 
 By integrating this outline expansion with an effective downscaling strategy and optional color palette optimization, the full pixelization pipeline is able to generate attractive pixel-style artwork from high resolution images. The intentional emphasis on important visual elements sets this approach apart from direct downsampling methods.
+
+### Contrast-Based Downsampling
+
+The Contrast-Based Downsampling step intelligently reduces the resolution of the outline-expanded image to the target pixel art size while preserving important visual details and contrast. The image is converted to the LAB color space to process luminance and color channels separately.
+
+Luminance Channel Processing:
+1. The `find_pixel` function is applied to the L (luminance) channel using a sliding window approach.
+2. For each local window, `find_pixel` compares the center pixel to several local statistics:
+   - `mid`: the center pixel value
+   - `med`: the median pixel value
+   - `mu`: the mean pixel value
+   - `maxi`: the maximum pixel value
+   - `mini`: the minimum pixel value
+3. The function then makes an adaptive decision based on the local distribution of pixel values:
+   - If `(med < mu) & (maxi - med > med - mini)`, the window has a skewed distribution towards lower values, suggesting a dark region or edge. In this case, the minimum value (`mini`) is selected to preserve the dark detail.
+   - If `(med > mu) & (maxi - med < med - mini)`, the window has a skewed distribution towards higher values, indicating a bright region or edge. Here, the maximum value (`maxi`) is chosen to preserve the bright detail.
+   - If neither condition is true, the center pixel value (`mid`) is kept to avoid introducing artifacts.
+4. This adaptive selection process is applied to each local window across the entire luminance channel.
+
+By intelligently choosing the most representative pixel value for each local window based on the local contrast and distribution, the `find_pixel` function ensures that important luminance details and edges are preserved during the downscaling process.
+
+The color channels (A and B) are processed using a simple median filter to maintain color information while being robust to outliers and artifacts.
+
+Finally, the processed LAB channels are combined and converted back to the RGB color space to obtain the downscaled pixel art image.
+
+The Contrast-Based Downsampling approach, particularly its adaptive luminance processing, is a key reason why this pixelization algorithm achieves high-quality results. By making informed decisions based on local contrast, it preserves the most important visual information and maintains the artistic integrity of the pixel art style.
+
 
 ## Acknowledgement
 
