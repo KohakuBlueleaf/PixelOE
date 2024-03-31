@@ -1,6 +1,6 @@
 import os
 from subprocess import Popen
-
+from time import time
 
 all_command = []
 
@@ -21,6 +21,7 @@ for file, size, p, t in [
 
 
 ## Use Popen to run all commands in parallel
+t0 = time()
 all_process = []
 for command in all_command:
     print(command)
@@ -30,3 +31,8 @@ for command in all_command:
 ## Wait for all processes to finish
 for process in all_process:
     process.wait()
+t1 = time()
+print("=" * 50)
+print(f"Total time   : {t1 - t0:.3f}sec")
+print(f"Total process: {len(all_process)}")
+print(f"Average cost : {(t1 - t0) / len(all_process):.3f}sec")
