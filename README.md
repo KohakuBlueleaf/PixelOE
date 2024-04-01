@@ -68,6 +68,10 @@ For example
 pixeloe.pixelize img/test.png --output_img img/test2.png --target_size 256 --patch_size 8
 ```
 
+### Commands list
+* `pixeloe.pixelize`: Full Pixelization Process
+* `pixeloe.outline`: Outline Expansion
+
 ---
 
 Or you can import it into your code:
