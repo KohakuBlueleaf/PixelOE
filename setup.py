@@ -8,6 +8,7 @@ setup(
     version="0.0.5",
     url="https://github.com/KohakuBlueleaf/PixelOE",
     description="Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion.",
+    license="Apache License 2.0",
     author="Shih-Ying Yeh(KohakuBlueLeaf)",
     author_email="apolloyeh0123@gmail.com",
     zip_safe=False,
