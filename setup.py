@@ -5,7 +5,7 @@ from pixeloe.cli import command_map
 setup(
     name="pixeloe",
     packages=find_packages(),
-    version="0.0.4",
+    version="0.0.5",
     url="https://github.com/KohakuBlueleaf/PixelOE",
     description="Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion.",
     author="Shih-Ying Yeh(KohakuBlueLeaf)",
