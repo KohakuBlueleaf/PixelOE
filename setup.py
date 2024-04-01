@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from pixeloe.cli import command_map
 
 
 setup(
@@ -11,6 +12,11 @@ setup(
     author_email="apolloyeh0123@gmail.com",
     zip_safe=False,
     install_requires=["opencv-python", "numpy", "pillow"],
-    entry_points={"console_scripts": ["pixeloe.pixelize=pixeloe.cli:main"]},
+    entry_points={
+        "console_scripts": [
+            f"pixeloe.{command}=pixeloe.cli:{func}"
+            for command, func in command_map.items()
+        ]
+    },
     python_requires=">=3.10",
 )
