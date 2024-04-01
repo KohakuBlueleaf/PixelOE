@@ -69,7 +69,14 @@ pixeloe.pixelize img/test.png --output_img img/test2.png --target_size 256 --pat
 ```
 
 ### Commands list
+
 * `pixeloe.pixelize`: Full Pixelization Process
+  * Downscale mode list:
+    * Nearest
+    * Bicubic
+    * Center: select the center pixel in the patch
+    * Contrast: Contrast-based downscale method (see explantion below)
+    * k-centroid: [k-centroid algorithm from Astropulse](https://github.com/Astropulse/pixeldetector/blob/6e88e18ddbd16529b5dd85b1c615cbb2e5778bf2/k-centroid.py#L19-L44)
 * `pixeloe.outline`: Outline Expansion
 
 ---
@@ -123,6 +130,7 @@ By integrating this outline expansion with an effective downscaling strategy and
 The Contrast-Based Downsampling step intelligently reduces the resolution of the outline-expanded image to the target pixel art size while preserving important visual details and contrast. The image is converted to the LAB color space to process luminance and color channels separately.
 
 Luminance Channel Processing:
+
 1. The `find_pixel` function is applied to the L (luminance) channel using a sliding window approach.
 2. For each local window, `find_pixel` compares the center pixel to several local statistics:
    - `mid`: the center pixel value
@@ -144,7 +152,6 @@ Finally, the processed LAB channels are combined and converted back to the RGB c
 
 The Contrast-Based Downsampling approach, particularly its adaptive luminance processing, is a key reason why this pixelization algorithm achieves high-quality results. By making informed decisions based on local contrast, it preserves the most important visual information and maintains the artistic integrity of the pixel art style.
 
-
 ## Acknowledgement
 
 * Astropulse
@@ -152,7 +159,6 @@ The Contrast-Based Downsampling approach, particularly its adaptive luminance pr
 * Claude 3 opus:
   * Summarize the algorithm.
   * Convert some matlab code to python.
-
 
 ## Citation
 
