@@ -34,3 +34,11 @@ def apply_chunk(data, kernel, stride, func):
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
+
+
+def isiterable(x):
+    try:
+        _ = iter(x)
+        return True
+    except:
+        return False
