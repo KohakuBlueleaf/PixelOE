@@ -13,7 +13,7 @@ def parse_args_pixelize():
         default="contrast",
         choices=["center", "contrast", "k-centroid", "bicubic", "nearest"],
     )
-    parser.add_argument("--target_size", "-S", type=int, nargs='+', default=256)
+    parser.add_argument("--target_size", "-S", type=int, nargs="+", default=256)
     parser.add_argument("--patch_size", "-P", type=int, default=6)
     parser.add_argument("--thickness", "-T", type=int, default=1)
     parser.add_argument("--no_color_matching", action="store_true")
