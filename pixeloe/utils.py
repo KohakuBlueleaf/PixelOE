@@ -37,8 +37,4 @@ def sigmoid(x):
 
 
 def isiterable(x):
-    try:
-        _ = iter(x)
-        return True
-    except:
-        return False
+    return hasattr(x, "__iter__")
