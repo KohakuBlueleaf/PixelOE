@@ -2,9 +2,10 @@ from time import time
 
 import cv2
 
-from .color import match_color, color_styling
+from .color import match_color, color_styling, kmeans_color_quant
 from .downscale import downscale_mode
 from .outline import outline_expansion
+from .utils import isiterable
 
 
 def pixelize(
@@ -20,11 +21,16 @@ def pixelize(
     no_upscale=False,
     no_downscale=False,
 ):
-    H, W, C = img.shape
+    H, W, _ = img.shape
 
     ratio = W / H
-    target_org_size = (target_size**2 * patch_size**2 / ratio) ** 0.5
-    target_org_hw = (int(target_org_size * ratio), int(target_org_size))
+    if isiterable(target_size):
+        target_org_hw = tuple([int(i * patch_size) for i in target_size][:2])
+        target_org_size = target_org_hw[1]
+        target_size = ((target_org_size**2) / (patch_size**2) * ratio) ** 0.5
+    else:
+        target_org_size = (target_size**2 * patch_size**2 / ratio) ** 0.5
+        target_org_hw = (int(target_org_size * ratio), int(target_org_size))
 
     img = cv2.resize(img, target_org_hw)
     org_img = img.copy()
@@ -38,6 +44,9 @@ def pixelize(
     if no_downscale:
         return img
     img_sm = downscale_mode[mode](img, target_size)
+
+    if colors is not None:
+        img_sm = kmeans_color_quant(img_sm, colors)
 
     if contrast != 1 or saturation != 1:
         img_sm = color_styling(img_sm, saturation, contrast)
