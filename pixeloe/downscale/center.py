@@ -10,7 +10,7 @@ def center_downscale(
     img,
     target_size=128,
 ):
-    H, W, C = img.shape
+    H, W, _ = img.shape
 
     ratio = W / H
     target_size = (target_size**2 / ratio) ** 0.5
