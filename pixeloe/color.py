@@ -1,5 +1,6 @@
-import numpy as np
 import cv2
+import numpy as np
+from PIL import Image
 
 
 def match_color(source, target):
@@ -52,3 +53,10 @@ def color_styling(input, saturation=1.2, contrast=1.1):
     output = np.clip(output, 0, 1)
     output = cv2.cvtColor(output, cv2.COLOR_HSV2BGR)
     return output
+
+
+def kmeans_color_quant(input, colors=32):
+    img = cv2.cvtColor(input, cv2.COLOR_BGR2RGB)
+    img_pil = Image.fromarray(img)
+    img_quant = img_pil.quantize(colors, 1, kmeans=colors).convert("RGB")
+    return cv2.cvtColor(np.array(img_quant), cv2.COLOR_RGB2BGR)
