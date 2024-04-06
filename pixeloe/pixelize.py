@@ -26,6 +26,7 @@ def pixelize(
     ratio = W / H
     if isiterable(target_size):
         target_org_hw = tuple([int(i * patch_size) for i in target_size][:2])
+        ratio = target_org_hw[0] / target_org_hw[1]
         target_org_size = target_org_hw[1]
         target_size = ((target_org_size**2) / (patch_size**2) * ratio) ** 0.5
     else:
