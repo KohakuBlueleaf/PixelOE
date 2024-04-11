@@ -1,1 +1,0 @@
-from .pixelize import pixelize

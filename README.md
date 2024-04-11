@@ -85,7 +85,7 @@ Or you can import it into your code:
 
 ```python
 import cv2
-from pixeloe import pixelize
+from pixeloe.pixelize import pixelize
 
 img = cv2.imread("img/test.png")
 img = pixelize(img, target_size=256, patch_size=8)
