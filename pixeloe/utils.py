@@ -7,9 +7,11 @@ import torch.nn.functional as F
 def apply_chunk(data, kernel, stride, func):
     org_shape = data.shape
     unfold_shape = org_shape
-    k_shift = max(kernel - stride, 0) // 2
 
-    data = np.pad(data, ((k_shift, k_shift), (k_shift, k_shift)), "edge")
+    k_shift = max(kernel - stride, 0)
+    pad_pattern = (k_shift // 2, k_shift // 2 + k_shift % 2)
+    data = np.pad(data, (pad_pattern, pad_pattern), "edge")
+
     if len(org_shape) == 2:
         data = data[np.newaxis, np.newaxis, ...]
 
@@ -38,3 +40,9 @@ def sigmoid(x):
 
 def isiterable(x):
     return hasattr(x, "__iter__")
+
+
+if __name__ == "__main__":
+    data = np.zeros((504, 504))
+    output = apply_chunk(data, 9, 4, lambda x: x[..., 0:1])
+    print(output.shape, data.shape)
