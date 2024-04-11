@@ -5,7 +5,7 @@ from pixeloe import cli
 setup(
     name="pixeloe",
     packages=find_packages(),
-    version="0.0.8",
+    version="0.0.9",
     url="https://github.com/KohakuBlueleaf/PixelOE",
     description="Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion.",
     license="Apache License 2.0",
