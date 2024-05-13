@@ -1,11 +1,16 @@
 from setuptools import setup, find_packages
-from pixeloe import cli
+
+
+command_map = {
+    "pixelize": "pixelize",
+    "outline": "outline",
+}
 
 
 setup(
     name="pixeloe",
     packages=find_packages(),
-    version="0.0.9",
+    version="0.0.10",
     url="https://github.com/KohakuBlueleaf/PixelOE",
     description="Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion.",
     license="Apache License 2.0",
@@ -16,7 +21,7 @@ setup(
     entry_points={
         "console_scripts": [
             f"pixeloe.{command}=pixeloe.cli:{func}"
-            for command, func in cli.command_map.items()
+            for command, func in command_map.items()
         ]
     },
     python_requires=">=3.10",
