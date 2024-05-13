@@ -24,12 +24,14 @@ def pixelize(
     H, W, _ = img.shape
 
     ratio = W / H
-    if isiterable(target_size):
+    if isiterable(target_size) and len(target_size) > 1:
         target_org_hw = tuple([int(i * patch_size) for i in target_size][:2])
         ratio = target_org_hw[0] / target_org_hw[1]
         target_org_size = target_org_hw[1]
         target_size = ((target_org_size**2) / (patch_size**2) * ratio) ** 0.5
     else:
+        if isiterable(target_size):
+            target_size = target_size[0]
         target_org_size = (target_size**2 * patch_size**2 / ratio) ** 0.5
         target_org_hw = (int(target_org_size * ratio), int(target_org_size))
 

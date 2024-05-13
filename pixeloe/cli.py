@@ -31,7 +31,7 @@ def pixelize():
     import cv2
     from PIL import Image
 
-    from . import pixelize
+    from .pixelize import pixelize
 
     img = Image.open(args.input_img)
     img = np.array(img)
