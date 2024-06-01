@@ -57,7 +57,9 @@ def outline_expansion(img, erode=2, dilate=2, k=16, avg_scale=10, dist_scale=3):
     output = cv2.dilate(output, kernel_smoothing, iterations=dilate * 2)
     output = cv2.erode(output, kernel_smoothing, iterations=erode)
 
-    return output
+    weight = np.abs(weight * 2 - 1) * 255
+    weight = cv2.dilate(weight.astype(np.uint8), kernel_expansion, iterations=dilate)
+    return output, weight.astype(np.float32) / 255
 
 
 if __name__ == "__main__":

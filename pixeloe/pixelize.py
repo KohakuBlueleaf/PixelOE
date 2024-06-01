@@ -1,10 +1,11 @@
 from time import time
 
 import cv2
+import numpy as np
 
-from .color import match_color, color_styling, kmeans_color_quant
+from .color import match_color, color_styling, color_quant
 from .downscale import downscale_mode
-from .outline import outline_expansion
+from .outline import outline_expansion, expansion_weight
 from .utils import isiterable
 
 
@@ -18,6 +19,8 @@ def pixelize(
     contrast=1.0,
     saturation=1.0,
     colors=None,
+    color_quant_method="kmeans",
+    colors_with_weight=False,
     no_upscale=False,
     no_downscale=False,
 ):
@@ -39,7 +42,12 @@ def pixelize(
     org_img = img.copy()
 
     if thickness:
-        img = outline_expansion(img, thickness, thickness, patch_size, 9, 4)
+        img, weight = outline_expansion(img, thickness, thickness, patch_size, 9, 4)
+    elif colors is not None and colors_with_weight:
+        weight = expansion_weight(img, patch_size, (patch_size // 4) * 2, 9, 4)[
+            ..., np.newaxis
+        ]
+        weight = np.abs(weight * 2 - 1)
 
     if color_matching:
         img = match_color(img, org_img)
@@ -49,7 +57,26 @@ def pixelize(
     img_sm = downscale_mode[mode](img, target_size)
 
     if colors is not None:
-        img_sm = kmeans_color_quant(img_sm, colors)
+        img_sm_orig = img_sm.copy()
+        weight_mat = None
+        if colors_with_weight:
+            weight_mat = cv2.resize(
+                weight,
+                (img_sm.shape[1], img_sm.shape[0]),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            # TODO: How to get more reasonable weight?
+            weight_gamma = (target_size / 512)
+            weight_mat = weight_mat ** weight_gamma
+        img_sm = color_quant(
+            img_sm,
+            colors,
+            weight_mat,
+            # TODO: How to get more reasonable repeat times?
+            int((patch_size * colors) ** 0.5),
+            color_quant_method,
+        )
+        img_sm = match_color(img_sm, img_sm_orig, 3)
 
     if contrast != 1 or saturation != 1:
         img_sm = color_styling(img_sm, saturation, contrast)
@@ -57,8 +84,7 @@ def pixelize(
     if no_upscale:
         return img_sm
 
-    img_lg = cv2.resize(img_sm, (W, H), interpolation=cv2.INTER_NEAREST)
-    return img_lg
+    return cv2.resize(img_sm, (W, H), interpolation=cv2.INTER_NEAREST)
 
 
 if __name__ == "__main__":
