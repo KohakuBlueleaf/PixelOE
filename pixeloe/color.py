@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 
 
-def match_color(source, target):
+def match_color(source, target, level=5):
     # Convert RGB to L*a*b*, and then match the std/mean
     source_lab = cv2.cvtColor(source, cv2.COLOR_BGR2LAB).astype(np.float32) / 255
     target_lab = cv2.cvtColor(target, cv2.COLOR_BGR2LAB).astype(np.float32) / 255
@@ -15,16 +15,16 @@ def match_color(source, target):
 
     source = source.astype(np.float32)
     # Use wavelet colorfix method to match original low frequency data at first
-    source[:, :, 0] = wavelet_colorfix(source[:, :, 0], target[:, :, 0])
-    source[:, :, 1] = wavelet_colorfix(source[:, :, 1], target[:, :, 1])
-    source[:, :, 2] = wavelet_colorfix(source[:, :, 2], target[:, :, 2])
+    source[:, :, 0] = wavelet_colorfix(source[:, :, 0], target[:, :, 0], level=level)
+    source[:, :, 1] = wavelet_colorfix(source[:, :, 1], target[:, :, 1], level=level)
+    source[:, :, 2] = wavelet_colorfix(source[:, :, 2], target[:, :, 2], level=level)
     output = source
     return output.clip(0, 255).astype(np.uint8)
 
 
-def wavelet_colorfix(inp, target):
-    inp_high, _ = wavelet_decomposition(inp, 5)
-    _, target_low = wavelet_decomposition(target, 5)
+def wavelet_colorfix(inp, target, level=5):
+    inp_high, _ = wavelet_decomposition(inp, level)
+    _, target_low = wavelet_decomposition(target, level)
     output = inp_high + target_low
     return output
 
@@ -55,8 +55,48 @@ def color_styling(inp, saturation=1.2, contrast=1.1):
     return output
 
 
-def kmeans_color_quant(inp, colors=32):
-    img = cv2.cvtColor(inp, cv2.COLOR_BGR2RGB)
-    img_pil = Image.fromarray(img)
-    img_quant = img_pil.quantize(colors, 1, kmeans=colors).convert("RGB")
-    return cv2.cvtColor(np.array(img_quant), cv2.COLOR_RGB2BGR)
+def color_quant(image, colors=32, weights=None, repeats=64, method="kmeans"):
+    # TODO: more consistent/better color quant method 
+    #       (K-means is not good enough)
+    match method:
+        case "kmeans":
+            if weights is not None:
+                h, w, c = image.shape
+                pixels = []
+                weights = weights / np.max(weights) * repeats
+                for i in range(h):
+                    for j in range(w):
+                        repeat_times = max(1, int(weights[i, j]))
+                        pixels.extend([image[i, j]] * repeat_times)
+                pixels = np.array(pixels, dtype=np.float32)
+                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 32, 1)
+                _, labels, palette = cv2.kmeans(
+                    pixels, colors, None, criteria, 4, cv2.KMEANS_RANDOM_CENTERS
+                )
+
+                quantized_image = np.zeros((h, w, c), dtype=np.uint8)
+                label_idx = 0
+                for i in range(h):
+                    for j in range(w):
+                        repeat_times = max(1, int(weights[i, j]))
+                        quantized_image[i, j] = palette[labels[label_idx]]
+                        label_idx += repeat_times
+                return quantized_image
+            else:
+                h, w, c = image.shape
+                pixels = image.reshape((-1, 3)).astype(np.float32)
+                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 32, 1)
+                _, labels, palette = cv2.kmeans(
+                    pixels, colors, None, criteria, 4, cv2.KMEANS_RANDOM_CENTERS
+                )
+
+                quantized_image = np.zeros((h, w, c), dtype=np.uint8)
+                for i in range(h):
+                    for j in range(w):
+                        quantized_image[i, j] = palette[labels[i * w + j]]
+                return quantized_image
+        case "maxcover":
+            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            img_pil = Image.fromarray(img)
+            img_quant = img_pil.quantize(colors, 1, kmeans=colors).convert("RGB")
+            return cv2.cvtColor(np.array(img_quant), cv2.COLOR_RGB2BGR)
