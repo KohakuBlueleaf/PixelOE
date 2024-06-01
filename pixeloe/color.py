@@ -56,7 +56,7 @@ def color_styling(inp, saturation=1.2, contrast=1.1):
 
 
 def color_quant(image, colors=32, weights=None, repeats=64, method="kmeans"):
-    # TODO: more consistent/better color quant method 
+    # TODO: more consistent/better color quant method
     #       (K-means is not good enough)
     match method:
         case "kmeans":

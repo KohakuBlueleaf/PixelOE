@@ -14,6 +14,7 @@ def pixelize(
     mode="contrast",
     target_size=128,
     patch_size=16,
+    pixel_size=None,
     thickness=2,
     color_matching=True,
     contrast=1.0,
@@ -25,6 +26,8 @@ def pixelize(
     no_downscale=False,
 ):
     H, W, _ = img.shape
+    if pixel_size is None:
+        pixel_size = patch_size
 
     ratio = W / H
     if isiterable(target_size) and len(target_size) > 1:
@@ -66,8 +69,8 @@ def pixelize(
                 interpolation=cv2.INTER_LINEAR,
             )
             # TODO: How to get more reasonable weight?
-            weight_gamma = (target_size / 512)
-            weight_mat = weight_mat ** weight_gamma
+            weight_gamma = target_size / 512
+            weight_mat = weight_mat**weight_gamma
         img_sm = color_quant(
             img_sm,
             colors,
@@ -84,7 +87,11 @@ def pixelize(
     if no_upscale:
         return img_sm
 
-    return cv2.resize(img_sm, (W, H), interpolation=cv2.INTER_NEAREST)
+    return cv2.resize(
+        img_sm,
+        (img_sm.shape[1] * pixel_size, img_sm.shape[0] * pixel_size),
+        interpolation=cv2.INTER_NEAREST,
+    )
 
 
 if __name__ == "__main__":
