@@ -2,15 +2,22 @@ from functools import partial
 
 import cv2
 import numpy as np
+import torch
 
-from .utils import sigmoid, apply_chunk
+from .utils import sigmoid, apply_chunk, apply_chunk_torch
 
 
 def expansion_weight(img, k=8, stride=2, avg_scale=10, dist_scale=3):
     img_y = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)[:, :, 0] / 255
-    avg_y = apply_chunk(img_y, k * 2, stride, partial(np.median, axis=1, keepdims=True))
-    max_y = apply_chunk(img_y, k, stride, partial(np.max, axis=1, keepdims=True))
-    min_y = apply_chunk(img_y, k, stride, partial(np.min, axis=1, keepdims=True))
+    avg_y = apply_chunk_torch(
+        img_y, k * 2, stride, lambda x: torch.median(x, dim=1, keepdims=True).values
+    )
+    max_y = apply_chunk_torch(
+        img_y, k, stride, lambda x: torch.max(x, dim=1, keepdims=True).values
+    )
+    min_y = apply_chunk_torch(
+        img_y, k, stride, lambda x: torch.min(x, dim=1, keepdims=True).values
+    )
     bright_dist = max_y - avg_y
     dark_dist = avg_y - min_y
 
@@ -35,9 +42,7 @@ kernel_smoothing = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]).astype(np.uint8)
 
 
 def outline_expansion(img, erode=2, dilate=2, k=16, avg_scale=10, dist_scale=3):
-    weight = expansion_weight(img, k, (k // 4) * 2, avg_scale, dist_scale)[
-        ..., np.newaxis
-    ]
+    weight = expansion_weight(img, k, (k // 4) * 2, avg_scale, dist_scale)[..., None]
     orig_weight = sigmoid((weight - 0.5) * 5) * 0.25
 
     img_erode = img.copy()

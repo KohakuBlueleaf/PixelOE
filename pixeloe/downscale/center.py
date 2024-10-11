@@ -2,8 +2,9 @@ from functools import partial
 
 import numpy as np
 import cv2
+import torch
 
-from ..utils import apply_chunk
+from ..utils import apply_chunk_torch as apply_chunk
 
 
 def center_downscale(
@@ -28,13 +29,13 @@ def center_downscale(
         img_lab[:, :, 1],
         patch_size,
         patch_size,
-        partial(np.median, axis=1, keepdims=True),
+        lambda x: torch.median(x, dim=1, keepdims=True).values,
     )
     img_lab[:, :, 2] = apply_chunk(
         img_lab[:, :, 2],
         patch_size,
         patch_size,
-        partial(np.median, axis=1, keepdims=True),
+        lambda x: torch.median(x, dim=1, keepdims=True).values,
     )
     img = cv2.cvtColor(img_lab.clip(0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)
 

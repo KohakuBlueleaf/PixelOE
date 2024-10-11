@@ -2,16 +2,17 @@ from functools import partial
 
 import numpy as np
 import cv2
+import torch
 
-from ..utils import apply_chunk
+from ..utils import apply_chunk, apply_chunk_torch
 
 
 def find_pixel(chunks):
-    mid = chunks[..., chunks.shape[-1] // 2][..., np.newaxis]
-    med = np.median(chunks, axis=1, keepdims=True)
-    mu = np.mean(chunks, axis=1, keepdims=True)
-    maxi = np.max(chunks, axis=1, keepdims=True)
-    mini = np.min(chunks, axis=1, keepdims=True)
+    mid = chunks[..., chunks.shape[-1] // 2][..., None]
+    med = torch.median(chunks, dim=1, keepdims=True).values
+    mu = torch.mean(chunks, dim=1, keepdims=True)
+    maxi = torch.max(chunks, dim=1, keepdims=True).values
+    mini = torch.min(chunks, dim=1, keepdims=True).values
 
     output = mid
     mini_loc = (med < mu) & (maxi - med > med - mini)
@@ -35,18 +36,20 @@ def contrast_based_downscale(
     patch_size = max(int(round(H // target_hw[1])), int(round(W // target_hw[0])))
 
     img_lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
-    img_lab[:, :, 0] = apply_chunk(img_lab[:, :, 0], patch_size, patch_size, find_pixel)
-    img_lab[:, :, 1] = apply_chunk(
+    img_lab[:, :, 0] = apply_chunk_torch(
+        img_lab[:, :, 0], patch_size, patch_size, find_pixel
+    )
+    img_lab[:, :, 1] = apply_chunk_torch(
         img_lab[:, :, 1],
         patch_size,
         patch_size,
-        partial(np.median, axis=1, keepdims=True),
+        lambda x: torch.median(x, dim=1, keepdims=True).values,
     )
-    img_lab[:, :, 2] = apply_chunk(
+    img_lab[:, :, 2] = apply_chunk_torch(
         img_lab[:, :, 2],
         patch_size,
         patch_size,
-        partial(np.median, axis=1, keepdims=True),
+        lambda x: torch.median(x, dim=1, keepdims=True).values,
     )
     img = cv2.cvtColor(img_lab.clip(0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)
 

@@ -32,8 +32,11 @@ def pixelize():
     from PIL import Image
 
     from .pixelize import pixelize
+    from time import perf_counter_ns
 
     img = Image.open(args.input_img)
+    img.load()
+    t0 = perf_counter_ns()
     img = np.array(img)
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img = pixelize(
@@ -41,6 +44,7 @@ def pixelize():
         args.mode,
         args.target_size,
         args.patch_size,
+        None,
         args.thickness,
         not args.no_color_matching,
         args.contrast,
@@ -49,6 +53,8 @@ def pixelize():
         args.no_upscale,
         args.no_downscale,
     )
+    t1 = perf_counter_ns()
+    print(f"{(t1 - t0)/1e6}ms")
     if args.output_img is None:
         args.output_img = os.path.join(
             os.path.dirname(args.input_img),
@@ -113,3 +119,6 @@ command_map = {
     "pixelize": "pixelize",
     "outline": "outline",
 }
+
+if __name__ == "__main__":
+    pixelize()

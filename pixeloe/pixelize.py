@@ -48,7 +48,7 @@ def pixelize(
         img, weight = outline_expansion(img, thickness, thickness, patch_size, 9, 4)
     elif colors is not None and colors_with_weight:
         weight = expansion_weight(img, patch_size, (patch_size // 4) * 2, 9, 4)[
-            ..., np.newaxis
+            ..., None
         ]
         weight = np.abs(weight * 2 - 1)
 
