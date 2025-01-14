@@ -5,6 +5,9 @@ from torchvision.transforms.functional import to_tensor
 from kornia.color import lab_to_rgb, rgb_to_lab
 from PIL import Image
 
+from .env import TORCH_COMPILE
+from .minmax import dilate_cont, erode_cont, KERNELS
+
 
 def to_numpy(tensor):
     """
@@ -13,64 +16,45 @@ def to_numpy(tensor):
     return (tensor.permute(1, 2, 0).cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
 
 
-def dilate(img, kernel, iterations=1):
-    """
-    Morphological dilation using max-pooling.
-    """
-    p = kernel // 2
-    x = img.unsqueeze(0)
-    for _ in range(iterations):
-        x = F.max_pool2d(x, kernel_size=kernel, stride=1, padding=p)
-    return x.squeeze(0)
+@torch.compile(disable=not TORCH_COMPILE)
+def local_stat(tensor, kernel, stride, stat="median"):
+    B, C, H, W = tensor.shape
+    patches = F.unfold(
+        tensor, kernel_size=kernel, stride=stride, padding=kernel // 2
+    )
+    if stat == "median":
+        vals = patches.median(dim=1, keepdims=True).values.repeat(
+            1, patches.size(1), 1
+        )
+    elif stat == "max":
+        vals = patches.max(dim=1, keepdims=True).values.repeat(
+            1, patches.size(1), 1
+        )
+    elif stat == "min":
+        vals = patches.min(dim=1, keepdims=True).values.repeat(
+            1, patches.size(1), 1
+        )
+    out = F.fold(
+        vals,
+        output_size=(H, W),
+        kernel_size=kernel,
+        stride=stride,
+        padding=kernel // 2,
+    )
+    return out / ((kernel // stride) ** 2 + 1e-8)
 
 
-def erode(img, kernel, iterations=1):
-    """
-    Morphological erosion using inverted max-pooling.
-    """
-    p = kernel // 2
-    x = img.unsqueeze(0)
-    for _ in range(iterations):
-        x = -F.max_pool2d(-x, kernel_size=kernel, stride=1, padding=p)
-    return x.squeeze(0)
-
-
+@torch.compile(disable=not TORCH_COMPILE)
 def expansion_weight(img, k=16, stride=4, avg_scale=10, dist_scale=3):
     """
     Compute a weight matrix for outline expansion.
     """
     lab = rgb_to_lab(img.unsqueeze(0))  # [1,3,H,W]
-    L = lab[:, 0:1]/100  # [1,1,H,W]
+    L = lab[:, 0:1] / 100  # [1,1,H,W]
 
-    def local_stat(tensor, kernel, stat="median"):
-        B, C, H, W = tensor.shape
-        patches = F.unfold(
-            tensor, kernel_size=kernel, stride=stride, padding=kernel // 2
-        )
-        if stat == "median":
-            vals = patches.median(dim=1, keepdims=True).values.repeat(
-                1, patches.size(1), 1
-            )
-        elif stat == "max":
-            vals = patches.max(dim=1, keepdims=True).values.repeat(
-                1, patches.size(1), 1
-            )
-        elif stat == "min":
-            vals = patches.min(dim=1, keepdims=True).values.repeat(
-                1, patches.size(1), 1
-            )
-        out = F.fold(
-            vals,
-            output_size=(H, W),
-            kernel_size=kernel,
-            stride=stride,
-            padding=kernel // 2,
-        )
-        return out / ((kernel // stride) ** 2 + 1e-8)
-
-    L_med = local_stat(L, k * 2, stat="median")
-    L_min = local_stat(L, k, stat="min")
-    L_max = local_stat(L, k, stat="max")
+    L_med = local_stat(L, k * 2, stride, stat="median")
+    L_min = local_stat(L, k, stride, stat="min")
+    L_max = local_stat(L, k, stride, stat="max")
 
     bright_dist = L_max - L_med
     dark_dist = L_med - L_min
@@ -88,20 +72,40 @@ def outline_expansion(
     """
     Perform contrast-aware outline expansion on an image.
     """
-    w = expansion_weight(img, k, (k // 4) * 2, avg_scale, dist_scale)
-    e = erode(img, 3, erode_iters)  # kernel=3
-    d = dilate(img, 3, dilate_iters)
+    w = expansion_weight(img, k, k // 2, avg_scale, dist_scale)
+
+    e = erode_cont(img, KERNELS[erode_iters], 1)
+    d = dilate_cont(img, KERNELS[dilate_iters], 1)
 
     w3 = w.unsqueeze(0).repeat(3, 1, 1)
     out = e * w3 + d * (1.0 - w3)
 
-    out = erode(out, 2, erode_iters)
-    out = dilate(out, 2, dilate_iters * 2)
-    out = erode(out, 2, erode_iters)
+    # out = erode_cont( out, KERNELS[erode_iters], 1)
+    # out = dilate_cont(out, KERNELS[dilate_iters], 2)
+    # out = erode_cont( out, KERNELS[erode_iters], 1)
 
     return out, w
 
 
+@torch.compile(disable=not TORCH_COMPILE)
+def find_pixel_luminance(chunk):
+    mid_idx = chunk.shape[1] // 2
+    mid = chunk[:, mid_idx].unsqueeze(1)
+    med = chunk.median(dim=1).values.unsqueeze(1)
+    mu = chunk.mean(dim=1, keepdim=True)
+    maxi = chunk.max(dim=1).values.unsqueeze(1)
+    mini = chunk.min(dim=1).values.unsqueeze(1)
+
+    out = mid.clone()
+    cond1 = (med < mu) & ((maxi - med) > (med - mini))
+    cond2 = (med > mu) & ((maxi - med) < (med - mini))
+
+    out[cond1[:, 0]] = mini[cond1[:, 0]]
+    out[cond2[:, 0]] = maxi[cond2[:, 0]]
+    return out
+
+
+@torch.compile(disable=not TORCH_COMPILE)
 def contrast_downscale(img, patch_size=8):
     """
     Contrast-based downscaling of an image using unfold to process patches concurrently.
@@ -124,22 +128,6 @@ def contrast_downscale(img, patch_size=8):
     patches_L = patches_L.squeeze(0).transpose(0, 1)  # [N, patch_h*patch_w]
     patches_A = patches_A.squeeze(0).transpose(0, 1)  # [N, patch_h*patch_w]
     patches_B = patches_B.squeeze(0).transpose(0, 1)  # [N, patch_h*patch_w]
-
-    def find_pixel_luminance(chunk):
-        mid_idx = chunk.shape[1] // 2
-        mid = chunk[:, mid_idx].unsqueeze(1)
-        med = chunk.median(dim=1).values.unsqueeze(1)
-        mu = chunk.mean(dim=1, keepdim=True)
-        maxi = chunk.max(dim=1).values.unsqueeze(1)
-        mini = chunk.min(dim=1).values.unsqueeze(1)
-
-        out = mid.clone()
-        cond1 = (med < mu) & ((maxi - med) > (med - mini))
-        cond2 = (med > mu) & ((maxi - med) < (med - mini))
-
-        out[cond1[:, 0]] = mini[cond1[:, 0]]
-        out[cond2[:, 0]] = maxi[cond2[:, 0]]
-        return out
 
     # Process luminance concurrently across patches
     result_L = find_pixel_luminance(patches_L)  # [1, patch**2, N]
@@ -219,12 +207,12 @@ def pre_resize(
 
 def pixelize_pytorch(
     img_t,
-    target_size=128,
-    patch_size=8,
-    thickness=2,
+    target_size=256,
+    patch_size=6,
+    thickness=3,
     mode="contrast",
     do_color_match=True,
-    do_quant=True,
+    do_quant=False,
     K=32,
 ):
     """
@@ -269,19 +257,59 @@ def pixelize_pytorch(
 
 if __name__ == "__main__":
     from tqdm import trange
-    # Load the test image using OpenCV
+
     img = Image.open("test.png")
-    img_t = pre_resize(img, target_size=192, patch_size=6).cuda()
-    for _ in trange(100):
-        # Run the pixelization pipeline
-        pixel_art_t = pixelize_pytorch(
-            img_t,
-            target_size=384,
-            patch_size=4,
-            thickness=1,
-            do_quant=False,
-            do_color_match=False,
-        )
+
+    # with torch.inference_mode():
+    #     # Load the test image using OpenCV
+    #     for size, patch in [(256, 4), (256, 6), (256, 8)]:
+    #         for thickness in range(1, 7):
+    #             img_t = pre_resize(img, target_size=size, patch_size=patch).cuda()
+    #             outline_expanded, w = outline_expansion(img_t, thickness, thickness, patch, 10, 3)
+    #             oe_pixel = Image.fromarray(to_numpy(outline_expanded))
+    #             oe_pixel.save(f"test_output/test-oe-{size}-{patch}-{thickness}.png")
+    #         torch.cuda.empty_cache()
+
+    patch_size = 6
+    target_size = 240
+    thickness = 4
+
+    img_t = pre_resize(img, target_size=target_size, patch_size=patch_size).cuda()
+
+    dilate_t = dilate_cont(img_t, KERNELS[thickness], 1)
+    dilate_img = Image.fromarray(to_numpy(dilate_t))
+    dilate_img.save("test-dilate.png")
+
+    erode_t = erode_cont(img_t, KERNELS[thickness], 1)
+    erode_img = Image.fromarray(to_numpy(erode_t))
+    erode_img.save("test-erode.png")
+
+    oe_t, w = outline_expansion(img_t, thickness, thickness, patch_size, 10, 3)
+    oe = Image.fromarray(to_numpy(oe_t))
+    oe.save("test-oe.png")
+
+    pixel_art_t = pixelize_pytorch(
+        img_t,
+        target_size=target_size,
+        patch_size=patch_size,
+        thickness=thickness,
+        do_color_match=False,
+    )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t))
     pixel_art.save("test-pixel.png")
     print("Pixelated image saved as test-pixel.png")
+
+    print("Start speed test:")
+    print(f"  {target_size=}")
+    print(f"  {patch_size=}")
+    print(f"  {thickness=}")
+    print(f"  {TORCH_COMPILE=}")
+    for _ in trange(500, smoothing=0.01):
+        pixel_art_t = pixelize_pytorch(
+            img_t,
+            target_size=target_size,
+            patch_size=patch_size,
+            thickness=thickness,
+            do_color_match=False,
+        )
+    print("Speed test done")
