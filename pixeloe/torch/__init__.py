@@ -80,9 +80,11 @@ def outline_expansion(
     w3 = w.unsqueeze(0).repeat(3, 1, 1)
     out = e * w3 + d * (1.0 - w3)
 
-    # out = erode_cont( out, KERNELS[erode_iters], 1)
-    # out = dilate_cont(out, KERNELS[dilate_iters], 2)
-    # out = erode_cont( out, KERNELS[erode_iters], 1)
+    oc_iter = max(erode_iters-2, dilate_iters-2, 1)
+
+    out = erode_cont( out, KERNELS[oc_iter], 1)
+    out = dilate_cont(out, KERNELS[oc_iter], 2)
+    out = erode_cont( out, KERNELS[oc_iter], 1)
 
     return out, w
 
@@ -260,6 +262,11 @@ if __name__ == "__main__":
 
     img = Image.open("test.png")
 
+    img_t = to_tensor(img).cuda()
+    oe_t, w = outline_expansion(img_t, 6, 6, 8, 10, 3)
+    oe = Image.fromarray(to_numpy(oe_t))
+    oe.save("test-oe-orig.png")
+
     # with torch.inference_mode():
     #     # Load the test image using OpenCV
     #     for size, patch in [(256, 4), (256, 6), (256, 8)]:
@@ -270,8 +277,8 @@ if __name__ == "__main__":
     #             oe_pixel.save(f"test_output/test-oe-{size}-{patch}-{thickness}.png")
     #         torch.cuda.empty_cache()
 
-    patch_size = 6
-    target_size = 240
+    patch_size = 4
+    target_size = 320
     thickness = 4
 
     img_t = pre_resize(img, target_size=target_size, patch_size=patch_size).cuda()
