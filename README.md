@@ -8,13 +8,25 @@ A python implementation for this [project](https://github.com/KohakuBlueleaf/Pix
 
 ## Example
 
+### Outline Expansion
+|Original| Expanded|
+|-|-|
+|![](img/snow-leopard.png)|![](img/snow-leopard-oe-orig.png)|
+
+With this outline expansion method, you can obtain descent pixelization through some naive downsampling method:
+|Expanded|Dowsampled|
+|-|-|
+|![](img/snow-leopard-oe.png)|![](img/snow-leopard-pixel.png)|
+
+### Pixelization
+
 ![house-grid](demo/house-grid.png)
 
 ![horse-girl-grid](demo/horse-girl-grid.png)
 
 ![dragon-girl-grid](demo/dragon-girl-grid.png)
 
-### Use outline expansion to improve existing method
+#### Use outline expansion to improve existing method
 
 Use the outline expansion method can improve lot of existing pixelization method.
 Even the Neural Network based method can also be improved:
@@ -124,6 +136,12 @@ The goal of Outline Expansion is to expand important small details and high cont
 The Contrast-Aware Outline Expansion ensures that fine details and sharp edges are broadened before the subsequent downscaling step. This allows them to be represented at the final low target resolution rather than being lost entirely. The selective erosion and dilation based on local contrast helps expand the right regions while preserving overall sharpness.
 
 By integrating this outline expansion with an effective downscaling strategy and optional color palette optimization, the full pixelization pipeline is able to generate attractive pixel-style artwork from high resolution images. The intentional emphasis on important visual elements sets this approach apart from direct downsampling methods.
+
+| Dilation | Erosion | Blended| Weight|
+|-|-|-|-|
+|![](img/snow-leopard-dilate.png)|![](img/snow-leopard-erode.png)|![](img/snow-leopard-oe.png)|![](img/snow-leopard-w.png)|
+
+Darker pixel in the weight image means we take more dilated result and vice versa.
 
 ### Contrast-Based Downsampling
 

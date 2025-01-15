@@ -202,7 +202,7 @@ def pre_resize(
     in_h = (target_size**2 / ratio) ** 0.5
     in_w = int(in_h * ratio) * patch_size
     in_h = int(in_h) * patch_size
-    img_pil = img.resize((in_w, in_h), Image.Resampling.BICUBIC)
+    img_pil = img_pil.resize((in_w, in_h), Image.Resampling.BICUBIC)
     img_t = to_tensor(img_pil)
     return img_t
 
