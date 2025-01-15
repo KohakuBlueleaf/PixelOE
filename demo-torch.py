@@ -49,7 +49,46 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel.png")
 
     pixel_art_t = pixelize_pytorch(
-        pre_resize(img, target_size=360, patch_size=4).cuda(),
+        img_t,
+        target_size=target_size,
+        patch_size=patch_size,
+        thickness=thickness,
+        do_color_match=True,
+        do_quant=True,
+        K=128,
+        quant_mode="",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t))
+    pixel_art.save("./img/snow-leopard-pixel-128c.png")
+
+    pixel_art_t = pixelize_pytorch(
+        img_t,
+        target_size=target_size,
+        patch_size=patch_size,
+        thickness=thickness,
+        do_color_match=True,
+        do_quant=True,
+        K=128,
+        quant_mode="ordered",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t))
+    pixel_art.save("./img/snow-leopard-pixel-128c-d.png")
+
+    pixel_art_t = pixelize_pytorch(
+        img_t,
+        target_size=target_size,
+        patch_size=patch_size,
+        thickness=thickness,
+        do_color_match=True,
+        do_quant=True,
+        K=128,
+        quant_mode="error_diffusion",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t))
+    pixel_art.save("./img/snow-leopard-pixel-128c-ed.png")
+
+    pixel_art_t = pixelize_pytorch(
+        pre_resize(img, target_size=320, patch_size=4).cuda(),
         target_size=320,
         patch_size=4,
         thickness=3,
@@ -57,6 +96,45 @@ if __name__ == "__main__":
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t))
     pixel_art.save("./img/snow-leopard-pixel-lg.png")
+
+    pixel_art_t = pixelize_pytorch(
+        pre_resize(img, target_size=320, patch_size=4).cuda(),
+        target_size=320,
+        patch_size=4,
+        thickness=3,
+        do_color_match=True,
+        do_quant=True,
+        K=128,
+        quant_mode="",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t))
+    pixel_art.save("./img/snow-leopard-pixel-lg-128c.png")
+
+    pixel_art_t = pixelize_pytorch(
+        pre_resize(img, target_size=320, patch_size=4).cuda(),
+        target_size=320,
+        patch_size=4,
+        thickness=3,
+        do_color_match=True,
+        do_quant=True,
+        K=128,
+        quant_mode="ordered",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t))
+    pixel_art.save("./img/snow-leopard-pixel-lg-128c-d.png")
+
+    pixel_art_t = pixelize_pytorch(
+        pre_resize(img, target_size=320, patch_size=4).cuda(),
+        target_size=320,
+        patch_size=4,
+        thickness=3,
+        do_color_match=True,
+        do_quant=True,
+        K=128,
+        quant_mode="error_diffusion",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t))
+    pixel_art.save("./img/snow-leopard-pixel-lg-128c-ed.png")
 
     print("Start speed test:")
     print(f"  {target_size=}")
@@ -70,5 +148,6 @@ if __name__ == "__main__":
             patch_size=patch_size,
             thickness=thickness,
             do_color_match=False,
+            do_quant=False,
         )
     print("Speed test done")
