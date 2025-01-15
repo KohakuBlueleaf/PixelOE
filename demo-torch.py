@@ -55,7 +55,16 @@ if __name__ == "__main__":
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t))
     pixel_art.save("./img/snow-leopard-pixel.png")
-    print("Pixelated image saved as test-pixel.png")
+
+    pixel_art_t = pixelize_pytorch(
+        pre_resize(img, target_size=360, patch_size=4).cuda(),
+        target_size=320,
+        patch_size=4,
+        thickness=3,
+        do_color_match=True,
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t))
+    pixel_art.save("./img/snow-leopard-pixel-lg.png")
 
     print("Start speed test:")
     print(f"  {target_size=}")

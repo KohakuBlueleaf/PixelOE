@@ -3,11 +3,7 @@
 
 [![GitHub Repo](https://img.shields.io/github/stars/KohakuBlueleaf/PixelOE?style=social)](https://github.com/KohakuBlueleaf/PixelOE) [![PyPI version](https://badge.fury.io/py/pixeloe.svg)](https://badge.fury.io/py/pixeloe) [![License](https://img.shields.io/github/license/KohakuBlueleaf/PixelOE)](https://github.com/KohakuBlueleaf/PixelOE/blob/main/LICENSE)
 
-<p align="center">
-  <img src="img/house-grid.png" alt="house-grid" width="300"/>
-  <img src="img/horse-girl-grid.png" alt="horse-girl-grid" width="300"/>
-    <img src="img/dragon-girl-grid.png" alt="dragon-girl-grid" width="300"/>
-</p>
+![](img/snow-leopard-pixel-lg.png)
 
 PixelOE is a Python library that generates high-quality pixel art from standard images using a novel, **contrast-aware** approach. This method focuses on preserving crucial visual details by first **expanding outlines** of key features, then applying an intelligent downscaling to the target resolution.
 
