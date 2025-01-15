@@ -75,3 +75,30 @@ def wavelet_colorfix(
 
     # Combine high frequency from input with low frequency from target
     return high_freq + target_x
+
+
+def color_quantization_kmeans(img, K=32, max_iter=10):
+    """
+    Naive k-means color quantization on an image tensor.
+    """
+    pixels = img.permute(1, 2, 0).reshape(-1, 3)
+    centroids = pixels[torch.randperm(pixels.shape[0])[:K]]
+
+    for _ in range(max_iter):
+        dists = (pixels.unsqueeze(1) - centroids.unsqueeze(0)).pow(2).sum(dim=2)
+        labels = dists.argmin(dim=1)
+        new_centroids = []
+        for c in range(K):
+            cluster_points = pixels[labels == c]
+            if cluster_points.shape[0] > 0:
+                new_centroids.append(cluster_points.mean(dim=0))
+            else:
+                new_centroids.append(centroids[c])
+        new_centroids = torch.stack(new_centroids, dim=0)
+        diff = (new_centroids - centroids).abs().sum()
+        centroids = new_centroids
+        if diff < 1e-5:
+            break
+
+    quant_pixels = centroids[labels]
+    return quant_pixels.reshape(img.shape[1], img.shape[2], 3).permute(2, 0, 1)
