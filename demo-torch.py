@@ -1,7 +1,9 @@
 from torchvision.transforms.functional import to_tensor
 from PIL import Image
 
-from pixeloe.torch import outline_expansion, to_numpy, pixelize_pytorch, pre_resize
+from pixeloe.torch.pixelize import pixelize_pytorch
+from pixeloe.torch.outline import outline_expansion
+from pixeloe.torch.utils import to_numpy, pre_resize
 from pixeloe.torch.minmax import dilate_cont, erode_cont, KERNELS
 from pixeloe.torch.env import TORCH_COMPILE
 
@@ -15,16 +17,6 @@ if __name__ == "__main__":
     oe_t, w = outline_expansion(img_t, 6, 6, 8, 10, 3)
     oe = Image.fromarray(to_numpy(oe_t))
     oe.save("./img/snow-leopard-oe-orig.png")
-
-    # with torch.inference_mode():
-    #     # Load the test image using OpenCV
-    #     for size, patch in [(256, 4), (256, 6), (256, 8)]:
-    #         for thickness in range(1, 7):
-    #             img_t = pre_resize(img, target_size=size, patch_size=patch).cuda()
-    #             outline_expanded, w = outline_expansion(img_t, thickness, thickness, patch, 10, 3)
-    #             oe_pixel = Image.fromarray(to_numpy(outline_expanded))
-    #             oe_pixel.save(f"./img/snow-leopard_output/test-oe-{size}-{patch}-{thickness}.png")
-    #         torch.cuda.empty_cache()
 
     patch_size = 6
     target_size = 256
@@ -51,7 +43,7 @@ if __name__ == "__main__":
         target_size=target_size,
         patch_size=patch_size,
         thickness=thickness,
-        do_color_match=False,
+        do_color_match=True,
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t))
     pixel_art.save("./img/snow-leopard-pixel.png")
@@ -80,4 +72,3 @@ if __name__ == "__main__":
             do_color_match=False,
         )
     print("Speed test done")
-
