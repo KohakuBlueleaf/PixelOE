@@ -1,7 +1,7 @@
 # PixelOE: Detail-Oriented ***Pixel***ization based on Contrast-Aware ***O***utline ***E***xpansion.
 **Create stunning pixel art from high-resolution images without AI or complex networks.**
 
-[![GitHub Repo](https://img.shields.io/github/stars/KohakuBlueleaf/PixelOE?style=social)](https://github.com/KohakuBlueleaf/PixelOE) [![PyPI version](https://badge.fury.io/py/pixeloe.svg)](https://badge.fury.io/py/pixeloe) [![License](https://img.shields.io/github/license/KohakuBlueleaf/PixelOE)](https://github.com/KohakuBlueleaf/PixelOE/blob/main/LICENSE)
+[![PyPI version](https://badge.fury.io/py/pixeloe.svg)](https://badge.fury.io/py/pixeloe) [![License](https://img.shields.io/github/license/KohakuBlueleaf/PixelOE)](https://github.com/KohakuBlueleaf/PixelOE/blob/main/LICENSE)
 
 ![](img/snow-leopard-pixel-lg.png)
 
