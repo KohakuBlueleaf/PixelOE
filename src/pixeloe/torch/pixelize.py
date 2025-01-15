@@ -1,7 +1,7 @@
 import torch.nn.functional as F
 from .outline import outline_expansion
 from .downscale.contrast_based import contrast_downscale
-from .color import match_color, color_quantization_kmeans
+from .color import match_color, color_quantization_kmeans, quantize_and_dither
 
 
 def pixelize_pytorch(
@@ -13,6 +13,7 @@ def pixelize_pytorch(
     do_color_match=True,
     do_quant=False,
     K=32,
+    quant_mode="ordered",
 ):
     """
     Main pipeline: pixelize an image using PyTorch.
@@ -39,7 +40,7 @@ def pixelize_pytorch(
         )[0]
 
     if do_quant:
-        down_q = color_quantization_kmeans(down, K=K)
+        down_q = quantize_and_dither(down, K=K, dither_method=quant_mode)
         down_final = match_color(down_q[None], down[None])[0]
     else:
         down_final = down
