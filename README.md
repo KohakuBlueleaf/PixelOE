@@ -6,6 +6,8 @@ A python implementation for this [project](https://github.com/KohakuBlueleaf/Pix
 - **No NN**
 - **GPU Free**
 
+***Pure Pytorch implementation is WIP and can achieve over 180img/sec (bs1) on RTX4090 with 1920x1080 input and 480x270 output***
+
 ## Example
 
 ### Outline Expansion
@@ -137,9 +139,13 @@ The Contrast-Aware Outline Expansion ensures that fine details and sharp edges a
 
 By integrating this outline expansion with an effective downscaling strategy and optional color palette optimization, the full pixelization pipeline is able to generate attractive pixel-style artwork from high resolution images. The intentional emphasis on important visual elements sets this approach apart from direct downsampling methods.
 
-| Dilation | Erosion | Blended| Weight|
-|-|-|-|-|
-|![](img/snow-leopard-dilate.png)|![](img/snow-leopard-erode.png)|![](img/snow-leopard-oe.png)|![](img/snow-leopard-w.png)|
+| Dilation | Erosion |
+|-|-|
+|![](img/snow-leopard-dilate.png)|![](img/snow-leopard-erode.png)|
+
+| Blended| Weight|
+|-|-|
+|![](img/snow-leopard-oe.png)|![](img/snow-leopard-w.png)|
 
 Darker pixel in the weight image means we take more dilated result and vice versa.
 
