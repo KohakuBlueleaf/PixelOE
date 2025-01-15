@@ -1,15 +1,27 @@
-# Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion.
+# PixelOE: Detail-Oriented ***Pixel***ization based on Contrast-Aware ***O***utline ***E***xpansion.
+**Create stunning pixel art from high-resolution images without AI or complex networks.**
 
-A python implementation for this [project](https://github.com/KohakuBlueleaf/PixelOE-matlab).
+[![GitHub Repo](https://img.shields.io/github/stars/KohakuBlueleaf/PixelOE?style=social)](https://github.com/KohakuBlueleaf/PixelOE) [![PyPI version](https://badge.fury.io/py/pixeloe.svg)](https://badge.fury.io/py/pixeloe) [![License](https://img.shields.io/github/license/KohakuBlueleaf/PixelOE)](https://github.com/KohakuBlueleaf/PixelOE/blob/main/LICENSE)
 
-- **No AI**
-- **No NN**
-- **GPU Free**
+<p align="center">
+  <img src="img/house-grid.png" alt="house-grid" width="300"/>
+  <img src="img/horse-girl-grid.png" alt="horse-girl-grid" width="300"/>
+    <img src="img/dragon-girl-grid.png" alt="dragon-girl-grid" width="300"/>
+</p>
 
-***Pure Pytorch implementation is WIP and can achieve over 180img/sec (bs1) on RTX4090 with 1920x1080 input and 480x270 output***
+PixelOE is a Python library that generates high-quality pixel art from standard images using a novel, **contrast-aware** approach. This method focuses on preserving crucial visual details by first **expanding outlines** of key features, then applying an intelligent downscaling to the target resolution.
+
+**Key Features:**
+*   **No AI/NN Required:**  Utilizes classical image processing methods for efficient and predictable results.
+*   **Detail-Oriented:**  Emphasizes preservation of fine details and sharp edges.
+*   **Contrast-Aware:**  Adapts downsampling based on local image contrast.
+*   **Outline Expansion:**  Broadens important features before downscaling to prevent loss of detail.
+*   **Flexible Downscale Modes:** Offers various downsampling methods for different styles (center, contrast, k-centroid, bicubic, nearest).
+*   **Color Palette Optimization:** Option to quantize color palettes for a classic pixel art aesthetic.
+*   **Fast Pure Pytorch implementation** Achieving over 180img/sec (bs1) on RTX4090 with 1920x1080 input and 480x270 output
+*   **GPU Free**: All the core logic can be used without GPU.
 
 ## Example
-
 ### Outline Expansion
 |Original| Expanded|
 |-|-|
@@ -19,7 +31,6 @@ With this outline expansion method, you can obtain descent pixelization through 
 |Expanded|Dowsampled|
 |-|-|
 |![](img/snow-leopard-oe.png)|![](img/snow-leopard-pixel.png)|
-
 ### Pixelization
 
 ![house-grid](demo/house-grid.png)
@@ -27,7 +38,6 @@ With this outline expansion method, you can obtain descent pixelization through 
 ![horse-girl-grid](demo/horse-girl-grid.png)
 
 ![dragon-girl-grid](demo/dragon-girl-grid.png)
-
 #### Use outline expansion to improve existing method
 
 Use the outline expansion method can improve lot of existing pixelization method.
@@ -36,21 +46,79 @@ Even the Neural Network based method can also be improved:
 Here is the example of using outline expansion to improve "Make Your Own Sprites: Aliasing-Aware and Cell-Controllable Pixelization"(SIGGRAPH Asia 2022)
 ![make-your-own-sprites](demo/house-make-your-own-sprites.png)
 
+## How It Works
+
+The PixelOE algorithm has two key stages:
+
+### 1. Contrast-Aware Outline Expansion:
+
+This step is designed to make sure that fine details and high-contrast edges will survive after the downscaling step. Here is the process:
+
+1.  **Weight Map Generation:**
+    *   The input image is converted to grayscale.
+    *   Local median brightness is calculated.
+    *   Local max and min brightness values within each patch are found.
+    *   "Bright" and "dark" distances are calculated using local max/min and median.
+    *  Two weights are combined: 
+        * The first weight is prioritize brighter details in darker median area
+        * The second weight is based on the distance between the brighter/darker details.
+    *   The combined weight is normalized to 0-1.
+
+2.  **Selective Morphological Operations:**
+    *   The input image is eroded to shrink bright regions
+    *  The input image is dilated to expand bright regions
+    *  The eroded and dilated results are blended together based on the generated weight map.
+    * Morphological closing and opening are then applied to clean up edge artifacts.
+
+| Dilation | Erosion |
+|-|-|
+|![](img/snow-leopard-dilate.png)|![](img/snow-leopard-erode.png)|
+
+| Blended| Weight|
+|-|-|
+|![](img/snow-leopard-oe.png)|![](img/snow-leopard-w.png)|
+
+### 2. Contrast-Based Downsampling:
+
+This method reduces the image resolution while maintaining important luminance details.
+
+1.  **LAB Color Space Conversion:** The image is converted to the LAB color space to process luminance (L) and color (A, B) channels separately.
+2.  **Luminance Channel (L) Processing:**
+    *   A sliding window with `find_pixel` function is used, and each patch is processed independently.
+    *   Inside each patch, the center pixel is selected based on its relationship with the median, mean, min, max value within the patch.
+    *   If a patch has skewed distribution on low value, the minimum value will be selected to keep the dark detail and vice versa.
+    *   Otherwise, keep the center value.
+3.  **Color Channel (A and B) Processing:** A simple median filter is applied to the A and B channels
+4. **Convert back to RGB** The processed LAB channels are combined and converted back to the RGB color space.
+
+By adaptively selecting the most representative pixel for each local area, the downscaling method preserves important luminance details and edges to maintain the artistic style in pixel art.
+
+### Optional Enhancements
+
+*   **Color Palette Optimization:** You can reduce the number of colors using k-means clustering or maxcover method for a more classic pixel art look.
+*   **Color Matching:** Optionally transfer the color palette from the original image.
+
+
 ## Usage
 
-You can install this package through `pip`:
+### Installation
 
-```
+```bash
 pip install pixeloe
 ```
 
-And then use cli to run the command:
+### Command Line Interface (CLI)
 
-```
+The `pixeloe` package provides two primary commands:
+
+*   `pixeloe.pixelize`: Full pixelization process
+*   `pixeloe.outline`: Outline expansion
+
+To view command usage, use the `--help` flag:
+
+```bash
 pixeloe.pixelize --help
 ```
-
-Which should give you this message:
 
 ```
 usage: pixeloe.pixelize [-h] [--output_img OUTPUT_IMG] [--mode {center,contrast,k-centroid,bicubic,nearest}] [--target_size TARGET_SIZE]
@@ -76,26 +144,15 @@ options:
   --no_downscale
 ```
 
-For example
+**Example:**
 
-```
+```bash
 pixeloe.pixelize img/test.png --output_img img/test2.png --target_size 256 --patch_size 8
 ```
 
-### Commands list
+### Python API
 
-* `pixeloe.pixelize`: Full Pixelization Process
-  * Downscale mode list:
-    * Nearest
-    * Bicubic
-    * Center: select the center pixel in the patch
-    * Contrast: Contrast-based downscale method (see explantion below)
-    * k-centroid: [k-centroid algorithm from Astropulse](https://github.com/Astropulse/pixeldetector/blob/6e88e18ddbd16529b5dd85b1c615cbb2e5778bf2/k-centroid.py#L19-L44)
-* `pixeloe.outline`: Outline Expansion
-
----
-
-Or you can import it into your code:
+You can integrate PixelOE directly into your Python projects:
 
 ```python
 import cv2
@@ -106,86 +163,16 @@ img = pixelize(img, target_size=256, patch_size=8)
 cv2.imwrite("img/test2.png", img)
 ```
 
-## Algorithm Explanation
-
-There are 2 main component of this algorithm:
-
-1. Outline Expansion
-2. Contrast-based downscale
-
-### Outline Expansion
-
-The goal of Outline Expansion is to expand important small details and high contrast edges in the image before downscaling, so that they are not lost in the final low resolution pixel art. The key steps are:
-
-1. Compute a weight map that highlights areas to expand:
-
-   - Convert image to grayscale
-   - Calculate local median brightness in a neighborhood 2x(or 3x) the patch size
-   - Find local max and min brightness within each patch
-   - Compute bright and dark distances as the difference between local max/min and median
-   - Combine two weighting terms:
-     - weight_h1: Darker median pixels should prioritize keeping brighter details
-     - weight_h2: Larger bright vs dark distance indicates which extreme details to keep
-   - Apply sigmoid to the summed weights and normalize between 0-1
-2. Erode the input image for a number of iterations to shrink bright regions
-3. Dilate the input image for a number of iterations to expand bright regions
-4. Blend the eroded and dilated images using the computed weight map:
-
-   - Brighter weight values favor the dilated image to keep bright details
-   - Darker weight values favor the eroded image to keep dark details
-5. Apply morphological closing and opening to the blended result to clean up edge artifacts
-
-The Contrast-Aware Outline Expansion ensures that fine details and sharp edges are broadened before the subsequent downscaling step. This allows them to be represented at the final low target resolution rather than being lost entirely. The selective erosion and dilation based on local contrast helps expand the right regions while preserving overall sharpness.
-
-By integrating this outline expansion with an effective downscaling strategy and optional color palette optimization, the full pixelization pipeline is able to generate attractive pixel-style artwork from high resolution images. The intentional emphasis on important visual elements sets this approach apart from direct downsampling methods.
-
-| Dilation | Erosion |
-|-|-|
-|![](img/snow-leopard-dilate.png)|![](img/snow-leopard-erode.png)|
-
-| Blended| Weight|
-|-|-|
-|![](img/snow-leopard-oe.png)|![](img/snow-leopard-w.png)|
-
-Darker pixel in the weight image means we take more dilated result and vice versa.
-
-### Contrast-Based Downsampling
-
-The Contrast-Based Downsampling step intelligently reduces the resolution of the outline-expanded image to the target pixel art size while preserving important visual details and contrast. The image is converted to the LAB color space to process luminance and color channels separately.
-
-Luminance Channel Processing:
-
-1. The `find_pixel` function is applied to the L (luminance) channel using a sliding window approach.
-2. For each local window, `find_pixel` compares the center pixel to several local statistics:
-   - `mid`: the center pixel value
-   - `med`: the median pixel value
-   - `mu`: the mean pixel value
-   - `maxi`: the maximum pixel value
-   - `mini`: the minimum pixel value
-3. The function then makes an adaptive decision based on the local distribution of pixel values:
-   - If `(med < mu) & (maxi - med > med - mini)`, the window has a skewed distribution towards lower values, suggesting a dark region or edge. In this case, the minimum value (`mini`) is selected to preserve the dark detail.
-   - If `(med > mu) & (maxi - med < med - mini)`, the window has a skewed distribution towards higher values, indicating a bright region or edge. Here, the maximum value (`maxi`) is chosen to preserve the bright detail.
-   - If neither condition is true, the center pixel value (`mid`) is kept to avoid introducing artifacts.
-4. This adaptive selection process is applied to each local window across the entire luminance channel.
-
-By intelligently choosing the most representative pixel value for each local window based on the local contrast and distribution, the `find_pixel` function ensures that important luminance details and edges are preserved during the downscaling process.
-
-The color channels (A and B) are processed using a simple median filter to maintain color information while being robust to outliers and artifacts.
-
-Finally, the processed LAB channels are combined and converted back to the RGB color space to obtain the downscaled pixel art image.
-
-The Contrast-Based Downsampling approach, particularly its adaptive luminance processing, is a key reason why this pixelization algorithm achieves high-quality results. By making informed decisions based on local contrast, it preserves the most important visual information and maintains the artistic integrity of the pixel art style.
-
 ## Acknowledgement
 
-* Astropulse
-  * k-centorid downscaling algorithm.
-* Claude 3 opus:
-  * Summarize the algorithm.
-  * Convert some matlab code to python.
+*   Astropulse
+    *   k-centroid downscaling algorithm.
+*   Claude 3 opus:
+    *   Convert some matlab code to python.
+*   Gemini 2.0 Flash
+    *   Refine this README
 
 ## Citation
-
 ```bibtex
 @misc{PixelOE,
     title={Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion.}, 
