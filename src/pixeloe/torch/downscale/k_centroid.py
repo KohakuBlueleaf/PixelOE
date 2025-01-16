@@ -33,7 +33,7 @@ def batched_kmeans(data, num_clusters):
     centroids = torch.gather(data, 1, random_idx.unsqueeze(-1).expand(-1, -1, D))
     data = data.unsqueeze(2)
 
-    for _ in range(2 * int(num_clusters**0.5)):
+    for _ in range(max(2 * int(num_clusters**0.5), 8)):
         centroids, diff = batched_kmeans_iter(data, centroids)
         if diff < 1 / 256:
             break
@@ -41,27 +41,8 @@ def batched_kmeans(data, num_clusters):
     return centroids
 
 
-#@torch.compile(disable=not TORCH_COMPILE)
-def k_centroid_downscale_torch(img_batch, target_size=128, centroids_k=2):
-    """
-    PyTorch implementation of k-centroid downscaling, optimized for batch processing.
-
-    Args:
-        img_batch (torch.Tensor): Input batch of images (B, C, H, W), assuming channels are RGB.
-        target_size (int): The target size for the downscaled image (longest side).
-        centroids_k (int): Number of centroids for k-means clustering.
-
-    Returns:
-        torch.Tensor: Batch of downscaled images (B, C, H_down, W_down).
-    """
-    B, C, H, W = img_batch.shape
-
-    ratio = W / H
-    height = (target_size**2 / ratio) ** 0.5
-    width = height * ratio
-    height_down = int(height)
-    width_down = int(width)
-
+@torch.compile(disable=not TORCH_COMPILE)
+def k_centroid_preprocess(img_batch, B, C, H, W, height_down, width_down):
     # Calculate scaling factors
     h_factor = H / height_down
     w_factor = W / width_down
@@ -76,7 +57,7 @@ def k_centroid_downscale_torch(img_batch, target_size=128, centroids_k=2):
     img_batch = F.pad(
         img_batch,
         (diff_w // 2, diff_w - diff_w // 2, diff_h // 2, diff_h - diff_h // 2),
-        mode="reflect",
+        mode="replicate",
     )
 
     # Unfold the input batch into patches
@@ -87,12 +68,13 @@ def k_centroid_downscale_torch(img_batch, target_size=128, centroids_k=2):
     # Reshape patches for batched k-means: [B * num_patches, num_pixels_in_patch, C]
     num_patches = patches.shape[1]
     patches = patches.flatten(0, 1)
+    return patches, num_patches
 
-    # Apply batched k-means
-    kmeans_centroids = batched_kmeans(
-        patches, num_clusters=centroids_k
-    )  # [B * num_patches, centroids_k, C]
 
+@torch.compile(disable=not TORCH_COMPILE)
+def k_centroid_postprocess(
+    patches, kmeans_centroids, num_patches, B, C, height_down, width_down
+):
     # patches: [B, num_patches, num_pixels_in_patch, 1, C]
     # kmeans_centroids: [B, num_patches, 1, centroids_k, C]
     # dist: [B, num_patches, num_pixels_in_patch, centroids_k]
@@ -116,6 +98,36 @@ def k_centroid_downscale_torch(img_batch, target_size=128, centroids_k=2):
     )
 
     return quantized_patches_reshaped.reshape(B, C, height_down, width_down)
+
+
+# @torch.compile(disable=not TORCH_COMPILE)
+def k_centroid_downscale_torch(img_batch, target_size=128, centroids_k=2):
+    """
+    PyTorch implementation of k-centroid downscaling, optimized for batch processing.
+
+    Args:
+        img_batch (torch.Tensor): Input batch of images (B, C, H, W), assuming channels are RGB.
+        target_size (int): The target size for the downscaled image (longest side).
+        centroids_k (int): Number of centroids for k-means clustering.
+
+    Returns:
+        torch.Tensor: Batch of downscaled images (B, C, H_down, W_down).
+    """
+    B, C, H, W = img_batch.shape
+
+    ratio = W / H
+    height = (target_size**2 / ratio) ** 0.5
+    width = height * ratio
+    height_down = int(height)
+    width_down = int(width)
+
+    patches, num_patches = k_centroid_preprocess(
+        img_batch, B, C, H, W, height_down, width_down
+    )
+    kmeans_centroids = batched_kmeans(patches, num_clusters=centroids_k)
+    return k_centroid_postprocess(
+        patches, kmeans_centroids, num_patches, B, C, height_down, width_down
+    )
 
 
 if __name__ == "__main__":
