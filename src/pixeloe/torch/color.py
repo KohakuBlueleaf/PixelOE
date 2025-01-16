@@ -92,10 +92,13 @@ def color_quantization_kmeans(img, K=32):
     """
     B, C, H, W = img.shape
     pixels = img.permute(0, 2, 3, 1).reshape(B, -1, C)
-    random_idx = torch.stack(
-        [torch.randperm(pixels.shape[1], device=img.device)[:K] for _ in range(B)]
-    )
-    centroids = torch.gather(pixels, 1, random_idx.unsqueeze(-1).expand(-1, -1, C))
+
+    # Initialize centroids using min-max interpolation
+    maxv = pixels.max(dim=1, keepdim=True)
+    minv = pixels.min(dim=1, keepdim=True)
+    interp = torch.linspace(0, 1, K, device=img.device)[None, :, None]
+    centroids = interp * minv.values + (1 - interp) * maxv.values
+
     pixels = pixels.unsqueeze(2)
     cs = torch.arange(K, device=img.device)
 

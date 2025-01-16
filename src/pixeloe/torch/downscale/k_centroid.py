@@ -23,17 +23,14 @@ def batched_kmeans(data, num_clusters):
     Returns:
         torch.Tensor: Tensor of cluster centroids of shape [B, num_clusters, D].
     """
-    B, N, D = data.shape
-    random_idx = torch.stack(
-        [
-            torch.randperm(data.shape[1], device=data.device)[:num_clusters]
-            for _ in range(B)
-        ]
-    )
-    centroids = torch.gather(data, 1, random_idx.unsqueeze(-1).expand(-1, -1, D))
+    # deterministically initialize centroids
+    maxv = data.max(dim=1, keepdim=True)
+    minv = data.min(dim=1, keepdim=True)
+    interp = torch.linspace(0, 1, num_clusters, device=data.device)[None, :, None]
+    centroids = interp * minv.values + (1 - interp) * maxv.values
     data = data.unsqueeze(2)
 
-    for _ in range(max(2 * int(num_clusters**0.5), 8)):
+    for _ in range(max(2 * int(num_clusters**0.5), num_clusters)):
         centroids, diff = batched_kmeans_iter(data, centroids)
         if diff < 1 / 256:
             break
