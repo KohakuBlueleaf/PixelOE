@@ -17,7 +17,7 @@ if __name__ == "__main__":
     img_t = to_tensor(img).cuda().half()[None]
     oe_t, w = outline_expansion(img_t, 6, 6, 8, 10, 3)
     oe = Image.fromarray(to_numpy(oe_t)[0])
-    oe.save("./img/snow-leopard-oe-orig.webp")
+    oe.save("./img/snow-leopard-oe-orig.webp", lossless=True, quality=0)
 
     patch_size = 5
     target_size = 240
@@ -48,19 +48,19 @@ if __name__ == "__main__":
     print("Start Outline Expansion test:")
     dilate_t = dilate_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness], 1)
     dilate_img = Image.fromarray(to_numpy(dilate_t)[0])
-    dilate_img.save("./img/snow-leopard-dilate.webp")
+    dilate_img.save("./img/snow-leopard-dilate.webp", lossless=True, quality=0)
 
     erode_t = erode_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness], 1)
     erode_img = Image.fromarray(to_numpy(erode_t)[0])
-    erode_img.save("./img/snow-leopard-erode.webp")
+    erode_img.save("./img/snow-leopard-erode.webp", lossless=True, quality=0)
 
     oe_t, w = outline_expansion(
         img_t.repeat(2, 1, 1, 1), thickness, thickness, patch_size, 10, 3
     )
     oe = Image.fromarray(to_numpy(oe_t)[0])
-    oe.save("./img/snow-leopard-oe.webp")
+    oe.save("./img/snow-leopard-oe.webp", lossless=True, quality=0)
     w = Image.fromarray(w[0, 0].float().cpu().numpy().clip(0, 1) * 255).convert("L")
-    w.save("./img/snow-leopard-w.webp")
+    w.save("./img/snow-leopard-w.webp", lossless=True, quality=0)
     print("Outline Expansion test done")
 
     print("Start Pixelize test:")
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         do_color_match=False,
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel.webp")
+    pixel_art.save("./img/snow-leopard-pixel.webp", lossless=True, quality=0)
     print("    Pixlize test done")
 
     pixel_art_t = pixelize_pytorch(
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         do_color_match=True,
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-k.webp")
+    pixel_art.save("./img/snow-leopard-pixel-k.webp", lossless=True, quality=0)
     print("    K-Centroid test done")
 
     pixel_art_t = pixelize_pytorch(
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         quant_mode="",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-256c.webp")
+    pixel_art.save("./img/snow-leopard-pixel-256c.webp", lossless=True, quality=0)
     print("    Color Quantization test done")
 
     pixel_art_t = pixelize_pytorch(
@@ -118,7 +118,7 @@ if __name__ == "__main__":
         quant_mode="ordered",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-256c-d.webp")
+    pixel_art.save("./img/snow-leopard-pixel-256c-d.webp", lossless=True, quality=0)
     print("    Ordered Dithering test done")
 
     pixel_art_t = pixelize_pytorch(
@@ -132,7 +132,7 @@ if __name__ == "__main__":
         quant_mode="error_diffusion",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-256c-ed.webp")
+    pixel_art.save("./img/snow-leopard-pixel-256c-ed.webp", lossless=True, quality=0)
     print("    Error Diffusion test done")
 
     print("Start Pixelize test:")
@@ -150,7 +150,7 @@ if __name__ == "__main__":
         do_color_match=True,
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-lg.webp")
+    pixel_art.save("./img/snow-leopard-pixel-lg.webp", lossless=True, quality=0)
     print("    Pixlize test done")
 
     pixel_art_t = pixelize_pytorch(
@@ -162,7 +162,7 @@ if __name__ == "__main__":
         mode="k_centroid",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-lg-k.webp")
+    pixel_art.save("./img/snow-leopard-pixel-lg-k.webp", lossless=True, quality=0)
     print("    K-Centroid test done")
 
     pixel_art_t = pixelize_pytorch(
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         quant_mode="",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-lg-256c.webp")
+    pixel_art.save("./img/snow-leopard-pixel-lg-256c.webp", lossless=True, quality=0)
     print("    Color Quantization test done")
 
     pixel_art_t = pixelize_pytorch(
@@ -190,7 +190,7 @@ if __name__ == "__main__":
         quant_mode="ordered",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-lg-256c-d.webp")
+    pixel_art.save("./img/snow-leopard-pixel-lg-256c-d.webp", lossless=True, quality=0)
     print("    Ordered Dithering test done")
 
     pixel_art_t = pixelize_pytorch(
@@ -204,11 +204,11 @@ if __name__ == "__main__":
         quant_mode="error_diffusion",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-lg-256c-ed.webp")
+    pixel_art.save("./img/snow-leopard-pixel-lg-256c-ed.webp", lossless=True, quality=0)
     print("    Error Diffusion test done")
 
-    # exit()
-    N = 50
+    exit()
+    N = 100
     print("Start speed test:")
     print(f"  {target_size=}")
     print(f"  {patch_size=}")
