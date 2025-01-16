@@ -96,11 +96,11 @@ def pixelize(
 
 if __name__ == "__main__":
     t0 = time()
-    img = cv2.imread("img/house.png")
+    img = cv2.imread("img/house.webp")
     t1 = time()
     img = pixelize(img, target_size=128, patch_size=8)
     t2 = time()
-    cv2.imwrite("test.png", img)
+    cv2.imwrite("test.webp", img)
     t3 = time()
 
     print(f"read time: {t1 - t0:.3f}sec")

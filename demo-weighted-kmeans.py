@@ -27,7 +27,7 @@ if __name__ == "__main__":
     thickness = 2
     patch_size = 6
     pixel_size = 4
-    img = Image.open("img/fox-girl.png")
+    img = Image.open("img/fox-girl.webp")
     img = np.array(img)
     img_arr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
@@ -79,4 +79,4 @@ if __name__ == "__main__":
             grid.paste(img_ref, (0, 0))
             grid.paste(img_weighted, (img_ref.width, 0))
             grid.paste(img_normal, (img_ref.width * 2, 0))
-            grid.save(f"demo/weighted_kmeans/{size}_{colors}.png")
+            grid.save(f"demo/weighted_kmeans/{size}_{colors}.webp")

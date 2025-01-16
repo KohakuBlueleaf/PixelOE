@@ -5,9 +5,9 @@ from time import time
 all_command = []
 
 for file, size, p, t in [
-    ("./img/dragon-girl.png", 256, 6, 1),
-    ("./img/house.png", 128, 8, 2),
-    ("./img/horse-girl.png", 256, 8, 2),
+    ("./img/dragon-girl.webp", 256, 6, 1),
+    ("./img/house.webp", 128, 8, 2),
+    ("./img/horse-girl.webp", 256, 8, 2),
 ]:
     output_file = os.path.join("./demo", os.path.splitext(os.path.basename(file))[0])
     for thickness in [0, t]:
@@ -16,7 +16,7 @@ for file, size, p, t in [
                 "python -m pixeloe.cli "
                 f"{file} --thickness {thickness} "
                 f"--target_size {size} --patch_size {p} "
-                f"-M {mode} -O {output_file}-t{thickness}-{mode}.png"
+                f"-M {mode} -O {output_file}-t{thickness}-{mode}.webp"
             )
 
 

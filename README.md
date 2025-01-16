@@ -3,7 +3,7 @@
 
 [![PyPI version](https://badge.fury.io/py/pixeloe.svg)](https://badge.fury.io/py/pixeloe) [![License](https://img.shields.io/github/license/KohakuBlueleaf/PixelOE)](https://github.com/KohakuBlueleaf/PixelOE/blob/main/LICENSE)
 
-![](img/snow-leopard-pixel-lg.png)
+![](img/snow-leopard-pixel-lg-256c-d.webp)
 
 PixelOE is a Python library that generates high-quality pixel art from standard images using a novel, **contrast-aware** approach. This method focuses on preserving crucial visual details by first **expanding outlines** of key features, then applying an intelligent downscaling to the target resolution.
 
@@ -21,26 +21,26 @@ PixelOE is a Python library that generates high-quality pixel art from standard 
 ### Outline Expansion
 |Original| Expanded|
 |-|-|
-|![](img/snow-leopard.png)|![](img/snow-leopard-oe-orig.png)|
+|![](img/snow-leopard.webp)|![](img/snow-leopard-oe-orig.webp)|
 
 With this outline expansion method, you can obtain descent pixelization through some naive downsampling method:
 |Expanded|Dowsampled|
 |-|-|
-|![](img/snow-leopard-oe.png)|![](img/snow-leopard-pixel.png)|
+|![](img/snow-leopard-oe.webp)|![](img/snow-leopard-pixel.webp)|
 ### Pixelization
 
-![house-grid](demo/house-grid.png)
+![house-grid](demo/house-grid.webp)
 
-![horse-girl-grid](demo/horse-girl-grid.png)
+![horse-girl-grid](demo/horse-girl-grid.webp)
 
-![dragon-girl-grid](demo/dragon-girl-grid.png)
+![dragon-girl-grid](demo/dragon-girl-grid.webp)
 #### Use outline expansion to improve existing method
 
 Use the outline expansion method can improve lot of existing pixelization method.
 Even the Neural Network based method can also be improved:
 
 Here is the example of using outline expansion to improve "Make Your Own Sprites: Aliasing-Aware and Cell-Controllable Pixelization"(SIGGRAPH Asia 2022)
-![make-your-own-sprites](demo/house-make-your-own-sprites.png)
+![make-your-own-sprites](demo/house-make-your-own-sprites.webp)
 
 ## How It Works
 
@@ -68,11 +68,11 @@ This step is designed to make sure that fine details and high-contrast edges wil
 
 | Dilation | Erosion |
 |-|-|
-|![](img/snow-leopard-dilate.png)|![](img/snow-leopard-erode.png)|
+|![](img/snow-leopard-dilate.webp)|![](img/snow-leopard-erode.webp)|
 
 | Blended| Weight|
 |-|-|
-|![](img/snow-leopard-oe.png)|![](img/snow-leopard-w.png)|
+|![](img/snow-leopard-oe.webp)|![](img/snow-leopard-w.webp)|
 
 ### 2. Contrast-Based Downsampling:
 
@@ -143,7 +143,7 @@ options:
 **Example:**
 
 ```bash
-pixeloe.pixelize img/test.png --output_img img/test2.png --target_size 256 --patch_size 8
+pixeloe.pixelize img/test.webp --output_img img/test2.webp --target_size 256 --patch_size 8
 ```
 
 ### Python API
@@ -154,9 +154,9 @@ You can integrate PixelOE directly into your Python projects:
 import cv2
 from pixeloe.pixelize import pixelize
 
-img = cv2.imread("img/test.png")
+img = cv2.imread("img/test.webp")
 img = pixelize(img, target_size=256, patch_size=8)
-cv2.imwrite("img/test2.png", img)
+cv2.imwrite("img/test2.webp", img)
 ```
 
 ## Acknowledgement
