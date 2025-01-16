@@ -31,8 +31,8 @@ def expansion_weight(img, k=16, stride=4, avg_scale=10, dist_scale=3):
     """
     Compute a weight matrix for outline expansion.
     """
-    lab = rgb_to_lab(img.unsqueeze(0))  # [1,3,H,W]
-    L = lab[:, 0:1] / 100  # [1,1,H,W]
+    lab = rgb_to_lab(img)  # [B,3,H,W]
+    L = lab[:, 0:1] / 100  # [B,1,H,W]
 
     L_med = local_stat(L, k * 2, stride, stat="median")
     L_min = local_stat(L, k, stride, stat="min")
@@ -45,7 +45,7 @@ def expansion_weight(img, k=16, stride=4, avg_scale=10, dist_scale=3):
     weight = torch.sigmoid(weight)
 
     weight = (weight - weight.amin()) / (weight.amax() - weight.amin() + 1e-8)
-    return weight[0, 0]  # shape [H,W]
+    return weight  # shape [B, 1, H,W]
 
 
 def outline_expansion(
@@ -59,8 +59,7 @@ def outline_expansion(
     e = erode_cont(img, KERNELS[erode_iters], 1)
     d = dilate_cont(img, KERNELS[dilate_iters], 1)
 
-    w3 = w.unsqueeze(0).repeat(3, 1, 1)
-    out = e * w3 + d * (1.0 - w3)
+    out = e * w + d * (1.0 - w)
 
     oc_iter = max(erode_iters - 2, dilate_iters - 2, 1)
 
