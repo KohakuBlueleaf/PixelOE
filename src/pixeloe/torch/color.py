@@ -85,33 +85,51 @@ def wavelet_colorfix(
 
 
 @torch.compile(disable=not TORCH_COMPILE)
-def color_quantization_kmeans(img, K=32, max_iter=10):
+def batched_kmeans_iter(datas, centroids, cs=None):
+    """
+    datas: (B, N, C)
+    centroids: (B, K, C)
+    cs: (B, N)
+    """
+    K = centroids.shape[1]
+    if cs is None:
+        cs = torch.arange(K, device=datas.device)
+    dists = (datas - centroids.unsqueeze(1)).pow(2).sum(dim=-1)
+    labels = dists.argmin(dim=-1).unsqueeze(-1).repeat(1, 1, K)
+    masks = labels == cs
+    mask_valid = masks.sum(dim=1) > 0
+    cluster_sums = torch.sum(masks.unsqueeze(-1) * datas, dim=1)
+    cluster_means = cluster_sums / masks.sum(dim=1)[:, :, None]
+    new_centroids = torch.where(mask_valid[:, :, None], cluster_means, centroids)
+    diff = torch.max((new_centroids - centroids).abs())
+    return new_centroids, diff
+
+
+def color_quantization_kmeans(img, K=32):
     """
     Naive k-means color quantization on an image tensor.
     Returns both quantized image and centroids for later use.
     """
-    pixels = img.permute(1, 2, 0).reshape(-1, 3)
-    centroids = pixels[torch.randperm(pixels.shape[0])[:K]]
+    B, C, H, W = img.shape
+    pixels = img.permute(0, 2, 3, 1).reshape(B, -1, C)
+    random_idx = torch.stack(
+        [torch.randperm(pixels.shape[1], device=img.device)[:K] for _ in range(B)]
+    )
+    centroids = torch.gather(pixels, 1, random_idx.unsqueeze(-1).expand(-1, -1, C))
+    pixels = pixels.unsqueeze(2)
+    cs = torch.arange(K, device=img.device)
 
-    for _ in range(max_iter):
-        dists = (pixels.unsqueeze(1) - centroids.unsqueeze(0)).pow(2).sum(dim=2)
-        labels = dists.argmin(dim=1)
-        new_centroids = []
-        for c in range(K):
-            cluster_points = pixels[labels == c]
-            if cluster_points.shape[0] > 0:
-                new_centroids.append(cluster_points.mean(dim=0))
-            else:
-                new_centroids.append(centroids[c])
-        new_centroids = torch.stack(new_centroids, dim=0)
-        diff = (new_centroids - centroids).abs().sum()
-        centroids = new_centroids
-        if diff < 1e-5:
+    for iters in range(2*int(K**0.5)):
+        centroids, diff = batched_kmeans_iter(pixels, centroids, cs)
+        if diff < 1 / 256:
+            # if new centroids are not changing more than 1 in 8bit depth, break
             break
+    dists = (pixels - centroids.unsqueeze(1)).pow(2).sum(dim=-1)
+    labels = dists.argmin(dim=-1).unsqueeze(-1).expand(-1, -1, C)
+    quant_pixels = torch.gather(centroids, 1, labels)
 
-    quant_pixels = centroids[labels]
     return (
-        quant_pixels.reshape(img.shape[1], img.shape[2], 3).permute(2, 0, 1),
+        quant_pixels.reshape(B, H, W, C).permute(0, 3, 1, 2),
         centroids,
         labels,
     )
@@ -121,40 +139,51 @@ def find_nearest_palette_color(pixel, palette):
     """
     Find the nearest color in the palette for a given pixel.
     """
-    dists = (palette.unsqueeze(0) - pixel.unsqueeze(1)).pow(2).sum(dim=2)
-    return palette[dists.argmin(dim=1)]
+    dists = (palette.unsqueeze(1) - pixel.unsqueeze(2)).pow(2).sum(dim=-1)
+    return torch.gather(
+        palette, 1, dists.argmin(dim=2).unsqueeze(-1).expand(-1, -1, palette.size(-1))
+    )
 
 
+# @torch.compile(disable=not TORCH_COMPILE)
 def find_nearest_palette_colors_with_distance(pixel, palette):
     """
     Find the two nearest colors in the palette for a given pixel and return them
     along with the relative distance to the first color.
     """
-    dists = (palette.unsqueeze(0) - pixel.unsqueeze(1)).pow(2).sum(dim=2)
-    sorted_indices = dists.argsort(dim=1)
-    closest_two_indices = sorted_indices[:, :2]
-    closest_two_colors = palette[closest_two_indices]
+    dists = (palette.unsqueeze(1) - pixel.unsqueeze(2)).pow(2).sum(dim=-1)
+    sorted_indices = dists.argsort(dim=2)
+    top_closest_indices = sorted_indices[:, :, 0].unsqueeze(-1)
+    second_closest_indices = sorted_indices[:, :, 1].unsqueeze(-1)
+    top_clostes_distances = dists.gather(2, top_closest_indices)
+    second_closest_distances = dists.gather(2, second_closest_indices)
+    top_closest_colors = torch.gather(
+        palette, 1, top_closest_indices.expand(-1, -1, palette.size(-1))
+    )
+    second_closest_colors = torch.gather(
+        palette, 1, second_closest_indices.expand(-1, -1, palette.size(-1))
+    )
 
     # Calculate interpolation factor based on distances
-    closest_two_dists = torch.gather(dists, 1, closest_two_indices)
-    dist_ratio = closest_two_dists[:, 0] / (
-        closest_two_dists[:, 0] + closest_two_dists[:, 1] + 1e-6
+    dist_ratio = top_clostes_distances / (
+        top_clostes_distances + second_closest_distances + 1e-6
     )
-    return closest_two_colors[:, 0], closest_two_colors[:, 1], dist_ratio
+    return top_closest_colors, second_closest_colors, dist_ratio
 
 
 @torch.compile(disable=not TORCH_COMPILE)
 def error_diffusion_iter(output, height, width, palette, kernel):
     # Find nearest palette colors for current pixels
-    current_pixels = output[0].permute(1, 2, 0).reshape(-1, 3)
+    B, C, H, W = output.shape
+    current_pixels = output.permute(0, 2, 3, 1).reshape(B, -1, C)
     quantized_pixels = find_nearest_palette_color(current_pixels, palette)
-    quantized = quantized_pixels.reshape(height, width, 3).permute(2, 0, 1)
+    quantized = quantized_pixels.reshape(B, H, W, 3).permute(0, 3, 1, 2)
 
     # Calculate error
-    error = output[0] - quantized
+    error = output - quantized
 
     # Diffuse error using convolution
-    error_padded = F.pad(error.unsqueeze(0), (1, 1, 1, 1), mode="reflect")
+    error_padded = F.pad(error, (1, 1, 1, 1), mode="reflect")
     diffused_error = F.conv2d(
         error_padded,
         kernel.view(1, 1, 2, 3).repeat(3, 1, 1, 1),
@@ -167,7 +196,7 @@ def error_diffusion_iter(output, height, width, palette, kernel):
 def parallel_error_diffusion(image, height, width, palette, device):
     # Error diffusion kernel
     kernel = (
-        torch.tensor([[0, 0, 7], [3, 5, 1]], dtype=torch.float16, device=device) / 16.0
+        torch.tensor([[0, 0, 7], [3, 5, 1]], dtype=image.dtype, device=device) / 16.0
     )
 
     # Initialize output tensor
@@ -182,9 +211,10 @@ def parallel_error_diffusion(image, height, width, palette, device):
             output[:, :, y + 1 : y + 3] += diffused_error[:, :, y + 1 : y + 3]
 
     # Final quantization
-    final_pixels = output[0].permute(1, 2, 0).reshape(-1, 3)
+    B, C, H, W = output.shape
+    final_pixels = output.permute(0, 2, 3, 1).reshape(B, -1, C)
     final_quantized = find_nearest_palette_color(final_pixels, palette)
-    return final_quantized.reshape(height, width, 3).permute(2, 0, 1)
+    return final_quantized.reshape(B, H, W, 3).permute(0, 3, 1, 2)
 
 
 @lru_cache(maxsize=32)
@@ -218,18 +248,19 @@ def ordered_dither(image, height, width, palette, device):
     )[:height, :width]
 
     # Reshape image and find two nearest palette colors for each pixel
-    pixels = image[0].permute(1, 2, 0).reshape(-1, 3)
+    B, C, H, W = image.shape
+    pixels = image.permute(0, 2, 3, 1).reshape(B, -1, C)
     color1, color2, dist_ratio = find_nearest_palette_colors_with_distance(
         pixels, palette
     )
 
     # Apply threshold matrix to determine color selection
-    threshold = bayer.reshape(-1)
+    threshold = bayer.reshape(1, -1, 1)
 
     # Choose between color1 and color2 based on threshold and distance ratio
-    mask = (threshold > dist_ratio).float().unsqueeze(1)
+    mask = (threshold > dist_ratio).float()
     output_pixels = color1 * mask + color2 * (1 - mask)
-    return output_pixels.reshape(height, width, 3).permute(2, 0, 1)
+    return output_pixels.reshape(B, H, W, 3).permute(0, 3, 1, 2)
 
 
 def parallel_dither_with_palette(image, quantized, palette, method="error_diffusion"):
@@ -242,13 +273,12 @@ def parallel_dither_with_palette(image, quantized, palette, method="error_diffus
         method: 'error_diffusion' or 'ordered'
     """
     device = image.device
-    channels, height, width = image.shape
-    image = image.unsqueeze(0)  # Add batch dimension
+    B, C, H, W = image.shape
 
     if method == "error_diffusion":
-        output = parallel_error_diffusion(image, height, width, palette, device)
+        output = parallel_error_diffusion(image, H, W, palette, device)
     elif method == "ordered":
-        output = ordered_dither(image, height, width, palette, device)
+        output = ordered_dither(image, H, W, palette, device)
     else:
         output = quantized
 

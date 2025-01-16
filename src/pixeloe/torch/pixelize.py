@@ -2,9 +2,10 @@ import torch
 import torch.nn.functional as F
 
 from .outline import outline_expansion
+from .color import match_color, quantize_and_dither
 from .downscale.contrast_based import contrast_downscale
-from .color import match_color, color_quantization_kmeans, quantize_and_dither
-from .env import TORCH_COMPILE
+
+# from .downscale.k_centroid import k_centroid_downscale_torch_modular
 
 
 def pixelize_pytorch(
@@ -31,20 +32,20 @@ def pixelize_pytorch(
     if do_color_match:
         expanded = match_color(expanded, img_t)
 
-    H, W = expanded.shape[1], expanded.shape[2]
+    H, W = expanded.shape[2], expanded.shape[3]
     ratio = W / H
     out_h = int((target_size**2 / ratio) ** 0.5)
     out_w = int(out_h * ratio)
 
     if mode == "contrast":
         down = contrast_downscale(expanded, patch_size)
+    # elif mode == "k_centroid":
+    #     down = k_centroid_downscale_torch_modular(expanded, target_size, 2)
     else:
         down = F.interpolate(expanded, size=(out_h, out_w), mode="nearest")
 
     if do_quant:
-        down_q = down.clone()
-        for b in range(down.shape[0]):
-            down_q[b] = quantize_and_dither(down[b], K=K, dither_method=quant_mode)
+        down_q = quantize_and_dither(down, K=K, dither_method=quant_mode)
         down_final = match_color(down_q, down)
     else:
         down_final = down
