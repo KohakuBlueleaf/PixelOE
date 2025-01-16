@@ -16,6 +16,13 @@ def local_stat(tensor, kernel, stride, stat="median"):
         vals = patches.max(dim=1, keepdims=True).values.repeat(1, patches.size(1), 1)
     elif stat == "min":
         vals = patches.min(dim=1, keepdims=True).values.repeat(1, patches.size(1), 1)
+    div = F.fold(
+        torch.ones_like(vals),
+        output_size=(H, W),
+        kernel_size=kernel,
+        stride=stride,
+        padding=kernel // 2,
+    )
     out = F.fold(
         vals,
         output_size=(H, W),
@@ -23,7 +30,7 @@ def local_stat(tensor, kernel, stride, stat="median"):
         stride=stride,
         padding=kernel // 2,
     )
-    return out / ((kernel // stride) ** 2 + 1e-8)
+    return out / (div + 1e-8)
 
 
 @torch.compile(disable=not TORCH_COMPILE)
