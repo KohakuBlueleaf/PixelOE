@@ -42,14 +42,14 @@ def pixelize_pytorch(
     elif mode == "k_centroid":
         down = k_centroid_downscale_torch(expanded, target_size, 2)
     else:
-        down = F.interpolate(expanded, size=(out_h, out_w), mode="nearest")
+        down = F.interpolate(expanded, size=(out_h, out_w), mode="nearest-exact")
 
     if do_quant:
-        down_q = quantize_and_dither(down, K=K, dither_method=quant_mode)
-        down_final = match_color(down_q, down)
+        down_final = quantize_and_dither(down, K=K, dither_method=quant_mode)
+        down_final = match_color(down_final, down)
     else:
         down_final = down
 
-    out_pixel = F.interpolate(down_final, scale_factor=patch_size, mode="nearest")
+    out_pixel = F.interpolate(down_final, scale_factor=patch_size, mode="nearest-exact")
 
     return out_pixel

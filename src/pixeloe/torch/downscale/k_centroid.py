@@ -30,7 +30,7 @@ def batched_kmeans(data, num_clusters):
     centroids = interp * minv.values + (1 - interp) * maxv.values
     data = data.unsqueeze(2)
 
-    for _ in range(max(2 * int(num_clusters**0.5), num_clusters)):
+    for _ in range(max(2 * int(num_clusters**0.5), 4)):
         centroids, diff = batched_kmeans_iter(data, centroids)
         if diff < 1 / 256:
             break
