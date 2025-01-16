@@ -46,15 +46,17 @@ if __name__ == "__main__":
     )
 
     print("Start Outline Expansion test:")
-    dilate_t = dilate_cont(img_t, KERNELS[thickness], 1)
+    dilate_t = dilate_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness], 1)
     dilate_img = Image.fromarray(to_numpy(dilate_t)[0])
     dilate_img.save("./img/snow-leopard-dilate.webp")
 
-    erode_t = erode_cont(img_t, KERNELS[thickness], 1)
+    erode_t = erode_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness], 1)
     erode_img = Image.fromarray(to_numpy(erode_t)[0])
     erode_img.save("./img/snow-leopard-erode.webp")
 
-    oe_t, w = outline_expansion(img_t, thickness, thickness, patch_size, 10, 3)
+    oe_t, w = outline_expansion(
+        img_t.repeat(2, 1, 1, 1), thickness, thickness, patch_size, 10, 3
+    )
     oe = Image.fromarray(to_numpy(oe_t)[0])
     oe.save("./img/snow-leopard-oe.webp")
     w = Image.fromarray(w[0, 0].float().cpu().numpy().clip(0, 1) * 255).convert("L")
@@ -65,20 +67,34 @@ if __name__ == "__main__":
     print(f"  Patch Size    : {patch_size}")
     print(f"  Thickness     : {thickness}")
     print(f"  Original Size : {img_t.shape[3]}x{img_t.shape[2]}")
-    print(f"  Pixelized Size: {img_t.shape[3]//patch_size}x{img_t.shape[2]//patch_size}")
+    print(
+        f"  Pixelized Size: {img_t.shape[3]//patch_size}x{img_t.shape[2]//patch_size}"
+    )
     pixel_art_t = pixelize_pytorch(
-        img_t,
+        img_t.repeat(2, 1, 1, 1),  # for testing batch process
         target_size=target_size,
         patch_size=patch_size,
         thickness=thickness,
-        do_color_match=True,
+        do_color_match=False,
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel.webp")
     print("    Pixlize test done")
 
     pixel_art_t = pixelize_pytorch(
-        img_t,
+        img_t.repeat(2, 1, 1, 1),
+        target_size=target_size,
+        patch_size=patch_size,
+        thickness=thickness,
+        mode="k_centroid",
+        do_color_match=True,
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
+    pixel_art.save("./img/snow-leopard-pixel-k.webp")
+    print("    K-Centroid test done")
+
+    pixel_art_t = pixelize_pytorch(
+        img_t.repeat(2, 1, 1, 1),
         target_size=target_size,
         patch_size=patch_size,
         thickness=thickness,
@@ -92,7 +108,7 @@ if __name__ == "__main__":
     print("    Color Quantization test done")
 
     pixel_art_t = pixelize_pytorch(
-        img_t,
+        img_t.repeat(2, 1, 1, 1),
         target_size=target_size,
         patch_size=patch_size,
         thickness=thickness,
@@ -106,7 +122,7 @@ if __name__ == "__main__":
     print("    Ordered Dithering test done")
 
     pixel_art_t = pixelize_pytorch(
-        img_t,
+        img_t.repeat(2, 1, 1, 1),
         target_size=target_size,
         patch_size=patch_size,
         thickness=thickness,
@@ -123,9 +139,11 @@ if __name__ == "__main__":
     print(f"  Patch Size    : {lg_patch_size}")
     print(f"  Thickness     : {lg_thickness}")
     print(f"  Original Size : {img_t_lg.shape[3]}x{img_t_lg.shape[2]}")
-    print(f"  Pixelized Size: {img_t_lg.shape[3]//lg_patch_size}x{img_t_lg.shape[2]//lg_patch_size}")
+    print(
+        f"  Pixelized Size: {img_t_lg.shape[3]//lg_patch_size}x{img_t_lg.shape[2]//lg_patch_size}"
+    )
     pixel_art_t = pixelize_pytorch(
-        img_t_lg,
+        img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
         thickness=3,
@@ -136,7 +154,19 @@ if __name__ == "__main__":
     print("    Pixlize test done")
 
     pixel_art_t = pixelize_pytorch(
-        img_t_lg,
+        img_t_lg.repeat(2, 1, 1, 1),
+        target_size=lg_target_size,
+        patch_size=lg_patch_size,
+        thickness=3,
+        do_color_match=True,
+        mode="k_centroid",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
+    pixel_art.save("./img/snow-leopard-pixel-lg-k.webp")
+    print("    K-Centroid test done")
+
+    pixel_art_t = pixelize_pytorch(
+        img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
         thickness=3,
@@ -150,7 +180,7 @@ if __name__ == "__main__":
     print("    Color Quantization test done")
 
     pixel_art_t = pixelize_pytorch(
-        img_t_lg,
+        img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
         thickness=3,
@@ -164,7 +194,7 @@ if __name__ == "__main__":
     print("    Ordered Dithering test done")
 
     pixel_art_t = pixelize_pytorch(
-        img_t_lg,
+        img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
         thickness=3,
@@ -177,6 +207,7 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel-lg-256c-ed.webp")
     print("    Error Diffusion test done")
 
+    # exit()
     N = 50
     print("Start speed test:")
     print(f"  {target_size=}")
@@ -193,7 +224,6 @@ if __name__ == "__main__":
                 patch_size=patch_size,
                 thickness=thickness,
                 do_color_match=False,
-                do_quant=False,
             )
         torch.cuda.empty_cache()
         t = timeit(
@@ -203,7 +233,6 @@ if __name__ == "__main__":
                 patch_size=patch_size,
                 thickness=thickness,
                 do_color_match=False,
-                do_quant=False,
             )""",
             globals=globals(),
             number=N,
@@ -227,7 +256,6 @@ if __name__ == "__main__":
                 patch_size=patch_size,
                 thickness=thickness,
                 do_color_match=False,
-                do_quant=False,
             )
         torch.cuda.empty_cache()
         t = timeit(
@@ -237,7 +265,6 @@ if __name__ == "__main__":
                 patch_size=lg_patch_size,
                 thickness=lg_thickness,
                 do_color_match=False,
-                do_quant=False,
             )""",
             globals=globals(),
             number=N,
