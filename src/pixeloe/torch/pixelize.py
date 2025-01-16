@@ -5,7 +5,7 @@ from .outline import outline_expansion
 from .color import match_color, quantize_and_dither
 from .downscale.contrast_based import contrast_downscale
 
-# from .downscale.k_centroid import k_centroid_downscale_torch_modular
+from .downscale.k_centroid import k_centroid_downscale_torch
 
 
 def pixelize_pytorch(
@@ -39,8 +39,8 @@ def pixelize_pytorch(
 
     if mode == "contrast":
         down = contrast_downscale(expanded, patch_size)
-    # elif mode == "k_centroid":
-    #     down = k_centroid_downscale_torch_modular(expanded, target_size, 2)
+    elif mode == "k_centroid":
+        down = k_centroid_downscale_torch(expanded, target_size, 2)
     else:
         down = F.interpolate(expanded, size=(out_h, out_w), mode="nearest")
 
