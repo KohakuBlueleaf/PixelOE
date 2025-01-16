@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from kornia.color import rgb_to_lab, lab_to_rgb
 
+from .utils import batched_kmeans_iter
 from .env import TORCH_COMPILE
 
 
@@ -84,27 +85,6 @@ def wavelet_colorfix(
     return high_freq + target_x
 
 
-@torch.compile(disable=not TORCH_COMPILE)
-def batched_kmeans_iter(datas, centroids, cs=None):
-    """
-    datas: (B, N, C)
-    centroids: (B, K, C)
-    cs: (B, N)
-    """
-    K = centroids.shape[1]
-    if cs is None:
-        cs = torch.arange(K, device=datas.device)
-    dists = (datas - centroids.unsqueeze(1)).pow(2).sum(dim=-1)
-    labels = dists.argmin(dim=-1).unsqueeze(-1).repeat(1, 1, K)
-    masks = labels == cs
-    mask_valid = masks.sum(dim=1) > 0
-    cluster_sums = torch.sum(masks.unsqueeze(-1) * datas, dim=1)
-    cluster_means = cluster_sums / masks.sum(dim=1)[:, :, None]
-    new_centroids = torch.where(mask_valid[:, :, None], cluster_means, centroids)
-    diff = torch.max((new_centroids - centroids).abs())
-    return new_centroids, diff
-
-
 def color_quantization_kmeans(img, K=32):
     """
     Naive k-means color quantization on an image tensor.
@@ -119,7 +99,7 @@ def color_quantization_kmeans(img, K=32):
     pixels = pixels.unsqueeze(2)
     cs = torch.arange(K, device=img.device)
 
-    for iters in range(2*int(K**0.5)):
+    for iters in range(2 * int(K**0.5)):
         centroids, diff = batched_kmeans_iter(pixels, centroids, cs)
         if diff < 1 / 256:
             # if new centroids are not changing more than 1 in 8bit depth, break

@@ -1,11 +1,14 @@
 import numpy as np
+import torch
 from torchvision.transforms.functional import to_tensor
 from PIL import Image
+
+from .env import TORCH_COMPILE
 
 
 def to_numpy(tensor):
     """
-    Convert a torch.Tensor [B,C,H,W] with range [0..1] 
+    Convert a torch.Tensor [B,C,H,W] with range [0..1]
     back to a NumPy HWC image [0..255].
     """
     return list(
@@ -28,3 +31,24 @@ def pre_resize(
     img_pil = img_pil.resize((in_w, in_h), Image.Resampling.BICUBIC)
     img_t = to_tensor(img_pil)
     return img_t[None]
+
+
+@torch.compile(disable=not TORCH_COMPILE)
+def batched_kmeans_iter(datas, centroids, cs=None):
+    """
+    datas: (B, N, C)
+    centroids: (B, K, C)
+    cs: (B, N)
+    """
+    K = centroids.shape[1]
+    if cs is None:
+        cs = torch.arange(K, device=datas.device)
+    dists = (datas - centroids.unsqueeze(1)).pow(2).sum(dim=-1)
+    labels = dists.argmin(dim=-1).unsqueeze(-1).repeat(1, 1, K)
+    masks = labels == cs
+    mask_valid = masks.sum(dim=1) > 0
+    cluster_sums = torch.sum(masks.unsqueeze(-1) * datas, dim=1)
+    cluster_means = cluster_sums / masks.sum(dim=1)[:, :, None]
+    new_centroids = torch.where(mask_valid[:, :, None], cluster_means, centroids)
+    diff = torch.max((new_centroids - centroids).abs())
+    return new_centroids, diff
