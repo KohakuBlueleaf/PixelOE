@@ -34,7 +34,7 @@ def contrast_downscale(img, patch_size=8):
     out_h = H // patch_h
     out_w = W // patch_w
 
-    lab = rgb_to_lab(img)  # [1,3,H,W]
+    lab = rgb_to_lab(img)  # [B,3,H,W]
     L, A, B = lab[:, 0:1], lab[:, 1:2], lab[:, 2:3]
 
     # Unfold channels into patches
@@ -43,9 +43,9 @@ def contrast_downscale(img, patch_size=8):
     patches_B = F.unfold(B, kernel_size=(patch_h, patch_w), stride=(patch_h, patch_w))
 
     # Reshape to [N, patch_area] where N = out_h*out_w
-    patches_L = patches_L.transpose(1, 2)  # [B,N, patch_h*patch_w]
-    patches_A = patches_A.transpose(1, 2)  # [B,N, patch_h*patch_w]
-    patches_B = patches_B.transpose(1, 2)  # [B,N, patch_h*patch_w]
+    patches_L = patches_L.transpose(1, 2)  # [B, N, patch_h*patch_w]
+    patches_A = patches_A.transpose(1, 2)  # [B, N, patch_h*patch_w]
+    patches_B = patches_B.transpose(1, 2)  # [B, N, patch_h*patch_w]
 
     # Process luminance concurrently across patches
     result_L = find_pixel_luminance(patches_L)  # [B, patch**2, N]
@@ -54,9 +54,9 @@ def contrast_downscale(img, patch_size=8):
     result_B = patches_B.median(dim=2).values  # [B, patch**2, N]
 
     # Reshape results to [B,1,out_h,out_w]
-    result_L = result_L.transpose(0, 1).reshape(N, 1, out_h, -1)
-    result_A = result_A.transpose(0, 1).reshape(N, 1, out_h, -1)
-    result_B = result_B.transpose(0, 1).reshape(N, 1, out_h, -1)
+    result_L = result_L.reshape(N, 1, out_h, -1)
+    result_A = result_A.reshape(N, 1, out_h, -1)
+    result_B = result_B.reshape(N, 1, out_h, -1)
 
     out_lab = torch.cat([result_L, result_A, result_B], dim=1)  # [B,3,out_h,out_w]
     out_rgb = lab_to_rgb(out_lab)  # [B,3,out_h,out_w]
