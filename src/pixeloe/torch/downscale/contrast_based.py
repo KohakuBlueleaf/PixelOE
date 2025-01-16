@@ -50,8 +50,8 @@ def contrast_downscale(img, patch_size=8):
     # Process luminance concurrently across patches
     result_L = find_pixel_luminance(patches_L)  # [B, patch**2, N]
     # Compute median for A and B channels concurrently
-    result_A = patches_A.median(dim=2).values   # [B, patch**2, N]
-    result_B = patches_B.median(dim=2).values   # [B, patch**2, N]
+    result_A = patches_A.median(dim=2).values  # [B, patch**2, N]
+    result_B = patches_B.median(dim=2).values  # [B, patch**2, N]
 
     # Reshape results to [B,1,out_h,out_w]
     result_L = result_L.transpose(0, 1).reshape(N, 1, out_h, -1)

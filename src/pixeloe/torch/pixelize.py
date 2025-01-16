@@ -39,9 +39,7 @@ def pixelize_pytorch(
     if mode == "contrast":
         down = contrast_downscale(expanded, patch_size)
     else:
-        down = F.interpolate(
-            expanded, size=(out_h, out_w), mode="nearest"
-        )
+        down = F.interpolate(expanded, size=(out_h, out_w), mode="nearest")
 
     if do_quant:
         down_q = down.clone()
@@ -51,8 +49,6 @@ def pixelize_pytorch(
     else:
         down_final = down
 
-    out_pixel = F.interpolate(
-        down_final, scale_factor=patch_size, mode="nearest"
-    )
+    out_pixel = F.interpolate(down_final, scale_factor=patch_size, mode="nearest")
 
     return out_pixel
