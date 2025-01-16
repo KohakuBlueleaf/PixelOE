@@ -22,7 +22,7 @@ def match_color(source, target, level=5):
 
 @lru_cache(maxsize=32)
 def gaussian_kernel(radius: int, device: torch.device) -> torch.Tensor:
-    x = torch.arange(-radius, radius + 1, dtype=torch.float32, device=device)
+    x = torch.arange(-radius, radius + 1, dtype=torch.float16, device=device)
     kernel_1d = torch.exp(-x.pow(2) / (2 * radius * radius))
     kernel_2d = kernel_1d.unsqueeze(0) * kernel_1d.unsqueeze(1)
     return kernel_2d / kernel_2d.sum()
@@ -167,7 +167,7 @@ def error_diffusion_iter(output, height, width, palette, kernel):
 def parallel_error_diffusion(image, height, width, palette, device):
     # Error diffusion kernel
     kernel = (
-        torch.tensor([[0, 0, 7], [3, 5, 1]], dtype=torch.float32, device=device) / 16.0
+        torch.tensor([[0, 0, 7], [3, 5, 1]], dtype=torch.float16, device=device) / 16.0
     )
 
     # Initialize output tensor
@@ -192,16 +192,19 @@ def _generate_bayer_matrix(n, device):
     if n == 2:
         return torch.tensor([[0, 2], [3, 1]], device=device)
     smaller = _generate_bayer_matrix(n // 2, device)
-    result = torch.concat([
-        torch.concat([4 * smaller, 4 * smaller + 2], dim=1),
-        torch.concat([4 * smaller + 3, 4 * smaller + 1], dim=1)
-    ], dim=0)
+    result = torch.concat(
+        [
+            torch.concat([4 * smaller, 4 * smaller + 2], dim=1),
+            torch.concat([4 * smaller + 3, 4 * smaller + 1], dim=1),
+        ],
+        dim=0,
+    )
     return result
 
 
 @lru_cache(maxsize=32)
 def generate_bayer_matrix(n, device):
-    return _generate_bayer_matrix(n, device)/n**2
+    return _generate_bayer_matrix(n, device) / n**2
 
 
 # @torch.compile(disable=not TORCH_COMPILE)
@@ -268,6 +271,8 @@ def quantize_and_dither(image, K=32, dither_method="error_diffusion"):
     quantized_img, palette, _ = color_quantization_kmeans(image, K=K)
 
     # Then apply dithering using the generated palette
-    dithered_img = parallel_dither_with_palette(image, quantized_img, palette, method=dither_method)
+    dithered_img = parallel_dither_with_palette(
+        image, quantized_img, palette, method=dither_method
+    )
 
     return dithered_img
