@@ -1,13 +1,12 @@
 import numpy as np
-import torch
-import torch.nn.functional as F
 from torchvision.transforms.functional import to_tensor
 from PIL import Image
 
 
 def to_numpy(tensor):
     """
-    Convert a torch.Tensor [C,H,W] with range [0..1] back to a NumPy HWC image [0..255].
+    Convert a torch.Tensor [B,C,H,W] with range [0..1] 
+    back to a NumPy HWC image [0..255].
     """
     return list(
         (tensor.float().permute(0, 2, 3, 1).cpu().numpy() * 255)
