@@ -31,7 +31,7 @@ def pixelize():
     import cv2
     from PIL import Image
 
-    from .pixelize import pixelize
+    from .legacy.pixelize import pixelize
     from time import perf_counter_ns
 
     img = Image.open(args.input_img)
@@ -83,8 +83,8 @@ def outline():
     import cv2
     from PIL import Image
 
-    from .outline import outline_expansion
-    from .color import match_color
+    from .legacy.outline import outline_expansion
+    from .legacy.color import match_color
 
     img = Image.open(args.input_img)
     H, W = img.height, img.width
