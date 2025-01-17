@@ -25,6 +25,7 @@ def pixelize(
     no_upscale=False,
     no_downscale=False,
 ):
+    weighted_color = colors is not None and colors_with_weight
     H, W, _ = img.shape
     if pixel_size is None:
         pixel_size = patch_size
@@ -46,7 +47,7 @@ def pixelize(
 
     if thickness:
         img, weight = outline_expansion(img, thickness, thickness, patch_size, 9, 4)
-    elif colors is not None and colors_with_weight:
+    elif weighted_color:
         weight = expansion_weight(img, patch_size, (patch_size // 4) * 2, 9, 4)[
             ..., None
         ]
@@ -59,19 +60,18 @@ def pixelize(
         return img
     img_sm = downscale_mode[mode](img, target_size)
 
+    weight_mat = None
+    if weighted_color:
+        weight_mat = cv2.resize(
+            weight,
+            (img_sm.shape[1], img_sm.shape[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
+        # TODO: How to get more reasonable weight?
+        weight_gamma = target_size / 512
+        weight_mat = weight_mat**weight_gamma
     if colors is not None:
-        img_sm_orig = img_sm.copy()
-        weight_mat = None
-        if colors_with_weight:
-            weight_mat = cv2.resize(
-                weight,
-                (img_sm.shape[1], img_sm.shape[0]),
-                interpolation=cv2.INTER_LINEAR,
-            )
-            # TODO: How to get more reasonable weight?
-            weight_gamma = target_size / 512
-            weight_mat = weight_mat**weight_gamma
-        img_sm = color_quant(
+        img_sm_c = color_quant(
             img_sm,
             colors,
             weight_mat,
@@ -79,7 +79,7 @@ def pixelize(
             int((patch_size * colors) ** 0.5),
             color_quant_method,
         )
-        img_sm = match_color(img_sm, img_sm_orig, 3)
+        img_sm = match_color(img_sm_c, img_sm, 3)
 
     if contrast != 1 or saturation != 1:
         img_sm = color_styling(img_sm, saturation, contrast)

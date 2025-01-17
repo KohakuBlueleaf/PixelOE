@@ -85,7 +85,7 @@ def wavelet_colorfix(
     return high_freq + target_x
 
 
-def color_quantization_kmeans(img, K=32):
+def color_quantization_kmeans(img, num_centroids=32):
     """
     Naive k-means color quantization on an image tensor.
     Returns both quantized image and centroids for later use.
@@ -96,13 +96,13 @@ def color_quantization_kmeans(img, K=32):
     # Initialize centroids using min-max interpolation
     maxv = pixels.max(dim=1, keepdim=True)
     minv = pixels.min(dim=1, keepdim=True)
-    interp = torch.linspace(0, 1, K, device=img.device)[None, :, None]
+    interp = torch.linspace(0, 1, num_centroids, device=img.device)[None, :, None]
     centroids = interp * minv.values + (1 - interp) * maxv.values
 
     pixels = pixels.unsqueeze(2)
-    cs = torch.arange(K, device=img.device)
+    cs = torch.arange(num_centroids, device=img.device)
 
-    for iters in range(2 * int(K**0.5)):
+    for _ in range(2 * int(num_centroids**0.5)):
         centroids, diff = batched_kmeans_iter(pixels, centroids, cs)
         if diff < 1 / 256:
             # if new centroids are not changing more than 1 in 8bit depth, break
@@ -252,11 +252,11 @@ def parallel_dither_with_palette(image, quantized, palette, method="error_diffus
 
     Args:
         image: Input tensor of shape (channels, height, width)
-        palette: Tensor of colors to use (K x channels)
+        palette: Tensor of colors to use (num_centroids x channels)
         method: 'error_diffusion' or 'ordered'
     """
     device = image.device
-    B, C, H, W = image.shape
+    _, _, H, W = image.shape
 
     if method == "error_diffusion":
         output = parallel_error_diffusion(image, H, W, palette, device)
@@ -268,20 +268,20 @@ def parallel_dither_with_palette(image, quantized, palette, method="error_diffus
     return output
 
 
-def quantize_and_dither(image, K=32, dither_method="error_diffusion"):
+def quantize_and_dither(image, num_centroids=32, dither_method="error_diffusion"):
     """
     Combined color quantization and dithering.
 
     Args:
         image: Input tensor of shape (channels, height, width)
-        K: Number of colors in palette
+        num_centroids: Number of colors in palette
         dither_method: 'error_diffusion' or 'ordered'
 
     Returns:
         Quantized and dithered image tensor
     """
     # First perform k-means color quantization
-    quantized_img, palette, _ = color_quantization_kmeans(image, K=K)
+    quantized_img, palette, _ = color_quantization_kmeans(image, num_centroids=num_centroids)
 
     # Then apply dithering using the generated palette
     dithered_img = parallel_dither_with_palette(

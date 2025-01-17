@@ -55,48 +55,60 @@ def color_styling(inp, saturation=1.2, contrast=1.1):
     return output
 
 
+def weighted_kmeans(image, colors=32, weights=None, repeats=64):
+    h, w, c = image.shape
+    pixels = []
+    weights = weights / np.max(weights) * repeats
+    for i in range(h):
+        for j in range(w):
+            repeat_times = max(1, int(weights[i, j]))
+            pixels.extend([image[i, j]] * repeat_times)
+    pixels = np.array(pixels, dtype=np.float32)
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 32, 1)
+    _, labels, palette = cv2.kmeans(
+        pixels, colors, None, criteria, 4, cv2.KMEANS_RANDOM_CENTERS
+    )
+
+    quantized_image = np.zeros((h, w, c), dtype=np.uint8)
+    label_idx = 0
+    for i in range(h):
+        for j in range(w):
+            repeat_times = max(1, int(weights[i, j]))
+            quantized_image[i, j] = palette[labels[label_idx]]
+            label_idx += repeat_times
+    return quantized_image
+
+
+def kmeans(image, colors=32):
+    h, w, c = image.shape
+    pixels = image.reshape((-1, 3)).astype(np.float32)
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 32, 1)
+    _, labels, palette = cv2.kmeans(
+        pixels, colors, None, criteria, 4, cv2.KMEANS_RANDOM_CENTERS
+    )
+
+    quantized_image = np.zeros((h, w, c), dtype=np.uint8)
+    for i in range(h):
+        for j in range(w):
+            quantized_image[i, j] = palette[labels[i * w + j]]
+    return quantized_image
+
+
+def maxcover(image, colors=32):
+    img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    img_pil = Image.fromarray(img)
+    img_quant = img_pil.quantize(colors, 1, kmeans=colors).convert("RGB")
+    return cv2.cvtColor(np.array(img_quant), cv2.COLOR_RGB2BGR)
+
+
 def color_quant(image, colors=32, weights=None, repeats=64, method="kmeans"):
     # TODO: more consistent/better color quant method
     #       (K-means is not good enough)
     match method:
         case "kmeans":
             if weights is not None:
-                h, w, c = image.shape
-                pixels = []
-                weights = weights / np.max(weights) * repeats
-                for i in range(h):
-                    for j in range(w):
-                        repeat_times = max(1, int(weights[i, j]))
-                        pixels.extend([image[i, j]] * repeat_times)
-                pixels = np.array(pixels, dtype=np.float32)
-                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 32, 1)
-                _, labels, palette = cv2.kmeans(
-                    pixels, colors, None, criteria, 4, cv2.KMEANS_RANDOM_CENTERS
-                )
-
-                quantized_image = np.zeros((h, w, c), dtype=np.uint8)
-                label_idx = 0
-                for i in range(h):
-                    for j in range(w):
-                        repeat_times = max(1, int(weights[i, j]))
-                        quantized_image[i, j] = palette[labels[label_idx]]
-                        label_idx += repeat_times
-                return quantized_image
+                return weighted_kmeans(image, colors, weights, repeats)
             else:
-                h, w, c = image.shape
-                pixels = image.reshape((-1, 3)).astype(np.float32)
-                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 32, 1)
-                _, labels, palette = cv2.kmeans(
-                    pixels, colors, None, criteria, 4, cv2.KMEANS_RANDOM_CENTERS
-                )
-
-                quantized_image = np.zeros((h, w, c), dtype=np.uint8)
-                for i in range(h):
-                    for j in range(w):
-                        quantized_image[i, j] = palette[labels[i * w + j]]
-                return quantized_image
+                return kmeans(image, colors)
         case "maxcover":
-            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            img_pil = Image.fromarray(img)
-            img_quant = img_pil.quantize(colors, 1, kmeans=colors).convert("RGB")
-            return cv2.cvtColor(np.array(img_quant), cv2.COLOR_RGB2BGR)
+            return maxcover(image, colors)
