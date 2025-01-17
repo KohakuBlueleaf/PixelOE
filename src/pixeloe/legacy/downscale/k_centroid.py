@@ -11,9 +11,9 @@ def k_centroid_downscale(cv2img, target_size=128, centroids=2):
     k-centroid downscaling algorithm from Astropulse, under MIT License.
     https://github.com/Astropulse/pixeldetector/blob/6e88e18ddbd16529b5dd85b1c615cbb2e5778bf2/k-centroid.py#L19-L44
     """
-    H, W, _ = cv2img.shape
+    h, w, _ = cv2img.shape
 
-    ratio = W / H
+    ratio = w / h
     target_size = (target_size**2 / ratio) ** 0.5
     height = int(target_size)
     width = int(target_size * ratio)

@@ -11,12 +11,12 @@ def center_downscale(
     img,
     target_size=128,
 ):
-    H, W, _ = img.shape
+    h, w, _ = img.shape
 
-    ratio = W / H
+    ratio = w / h
     target_size = (target_size**2 / ratio) ** 0.5
     target_hw = (int(target_size * ratio), int(target_size))
-    patch_size = max(int(round(H // target_hw[1])), int(round(W // target_hw[0])))
+    patch_size = max(int(round(h // target_hw[1])), int(round(w // target_hw[0])))
 
     img_lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
     img_lab[:, :, 0] = apply_chunk(
