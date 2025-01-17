@@ -19,7 +19,7 @@ if __name__ == "__main__":
     oe_t, w = outline_expansion(img_t, 6, 6, 8, 10, 3)
     oe = Image.fromarray(to_numpy(oe_t)[0])
     oe.save("./img/snow-leopard-oe-orig.webp", lossless=True, quality=0)
-    pixeloe_env.TORCH_COMPILE = False
+    # pixeloe_env.TORCH_COMPILE = False
 
     patch_size = 5
     target_size = 240
@@ -48,11 +48,11 @@ if __name__ == "__main__":
     )
 
     print("Start Outline Expansion test:")
-    dilate_t = dilate_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness], 1)
+    dilate_t = dilate_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness].to(img_t), 1)
     dilate_img = Image.fromarray(to_numpy(dilate_t)[0])
     dilate_img.save("./img/snow-leopard-dilate.webp", lossless=True, quality=0)
 
-    erode_t = erode_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness], 1)
+    erode_t = erode_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness].to(img_t), 1)
     erode_img = Image.fromarray(to_numpy(erode_t)[0])
     erode_img.save("./img/snow-leopard-erode.webp", lossless=True, quality=0)
 
@@ -74,8 +74,7 @@ if __name__ == "__main__":
     )
     pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),  # for testing batch process
-        target_size=target_size,
-        patch_size=patch_size,
+        pixel_size=patch_size,
         thickness=thickness,
         do_color_match=False,
     )
@@ -85,8 +84,7 @@ if __name__ == "__main__":
 
     pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
-        target_size=target_size,
-        patch_size=patch_size,
+        pixel_size=patch_size,
         thickness=thickness,
         mode="k_centroid",
         do_color_match=True,
@@ -97,8 +95,7 @@ if __name__ == "__main__":
 
     pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
-        target_size=target_size,
-        patch_size=patch_size,
+        pixel_size=patch_size,
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
@@ -111,8 +108,7 @@ if __name__ == "__main__":
 
     pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
-        target_size=target_size,
-        patch_size=patch_size,
+        pixel_size=patch_size,
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
@@ -125,8 +121,7 @@ if __name__ == "__main__":
 
     pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
-        target_size=target_size,
-        patch_size=patch_size,
+        pixel_size=patch_size,
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
@@ -146,8 +141,7 @@ if __name__ == "__main__":
     )
     pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
-        target_size=lg_target_size,
-        patch_size=lg_patch_size,
+        pixel_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
     )
@@ -157,8 +151,7 @@ if __name__ == "__main__":
 
     pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
-        target_size=lg_target_size,
-        patch_size=lg_patch_size,
+        pixel_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
         mode="k_centroid",
@@ -169,8 +162,7 @@ if __name__ == "__main__":
 
     pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
-        target_size=lg_target_size,
-        patch_size=lg_patch_size,
+        pixel_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
         do_quant=True,
@@ -183,8 +175,7 @@ if __name__ == "__main__":
 
     pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
-        target_size=lg_target_size,
-        patch_size=lg_patch_size,
+        pixel_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
         do_quant=True,
@@ -197,8 +188,7 @@ if __name__ == "__main__":
 
     pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
-        target_size=lg_target_size,
-        patch_size=lg_patch_size,
+        pixel_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
         do_quant=True,
@@ -209,21 +199,20 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel-lg-256c-ed.webp", lossless=True, quality=0)
     print("    Error Diffusion test done")
 
-    exit()
-    N = 100
+    pixeloe_env.TORCH_COMPILE = True
+    N = 200
     print("Start speed test:")
     print(f"  {target_size=}")
     print(f"  {patch_size=}")
     print(f"  {thickness=}")
-    print(f"  {TORCH_COMPILE=}")
+    print(f"  {pixeloe_env.TORCH_COMPILE=}")
     print("  Results:")
     for bs in [1, 2, 4, 8, 16]:
         # Warmup
         for _ in range(10):
             pixelize(
                 img_t.repeat(bs, 1, 1, 1),
-                target_size=target_size,
-                patch_size=patch_size,
+                pixel_size=patch_size,
                 thickness=thickness,
                 do_color_match=False,
             )
@@ -231,8 +220,7 @@ if __name__ == "__main__":
         t = timeit(
             """pixelize(
                 img_t.repeat(bs, 1, 1, 1),
-                target_size=target_size,
-                patch_size=patch_size,
+                pixel_size=patch_size,
                 thickness=thickness,
                 do_color_match=False,
             )""",
@@ -247,24 +235,22 @@ if __name__ == "__main__":
     print(f"  {target_size=}")
     print(f"  {patch_size=}")
     print(f"  {thickness=}")
-    print(f"  {TORCH_COMPILE=}")
+    print(f"  {pixeloe_env.TORCH_COMPILE=}")
     print("  Results:")
     for bs in [1, 2, 4, 8, 16]:
         # Warmup
         for _ in range(10):
             pixelize(
                 img_t_lg.repeat(bs, 1, 1, 1),
-                target_size=target_size,
-                patch_size=patch_size,
-                thickness=thickness,
+                pixel_size=lg_patch_size,
+                thickness=lg_thickness,
                 do_color_match=False,
             )
         torch.cuda.empty_cache()
         t = timeit(
             """pixelize(
                 img_t_lg.repeat(bs, 1, 1, 1),
-                target_size=lg_target_size,
-                patch_size=lg_patch_size,
+                pixel_size=lg_patch_size,
                 thickness=lg_thickness,
                 do_color_match=False,
             )""",
