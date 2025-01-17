@@ -81,7 +81,8 @@ if __name__ == "__main__":
     stride = 8
     image_size = 128 * 8
 
-    data = np.random.randint(0, 255, (image_size, image_size)).astype(np.float32)
+    rng = np.random.default_rng(0)
+    data = rng.integers(0, 255, (image_size, image_size)).astype(np.float32)
     t0 = time.perf_counter_ns()
     output = apply_chunk(
         data, kernel, stride, lambda x: np.median(x, axis=1, keepdims=True)
