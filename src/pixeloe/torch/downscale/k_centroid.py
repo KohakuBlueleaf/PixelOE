@@ -16,12 +16,12 @@ def batched_kmeans(data, num_clusters):
     Performs batched k-means clustering.
 
     Args:
-        data (torch.Tensor): Input data tensor of shape [B, N, D].
+        data (torch.Tensor): Input data tensor of shape [b, N, D].
         num_clusters (int): The number of clusters (centroids).
         max_iters (int): Maximum number of iterations for k-means.
 
     Returns:
-        torch.Tensor: Tensor of cluster centroids of shape [B, num_clusters, D].
+        torch.Tensor: Tensor of cluster centroids of shape [b, num_clusters, D].
     """
     # deterministically initialize centroids
     maxv = data.max(dim=1, keepdim=True)
@@ -39,18 +39,18 @@ def batched_kmeans(data, num_clusters):
 
 
 @compile_wrapper
-def k_centroid_preprocess(img_batch, B, C, H, W, height_down, width_down):
-    # Calculate scaling factors
-    h_factor = H / height_down
-    w_factor = W / width_down
+def k_centroid_preprocess(img_batch, b, c, h, w, height_down, width_down):
+    # calculate scaling factors
+    h_factor = h / height_down
+    w_factor = w / width_down
 
-    # Create grid for unfolding
+    # create grid for unfolding
     kernel_size = (int(math.ceil(h_factor)), int(math.ceil(w_factor)))
     stride = kernel_size
     expected_height = height_down * kernel_size[0]
     expected_width = width_down * kernel_size[1]
-    diff_h = expected_height - H
-    diff_w = expected_width - W
+    diff_h = expected_height - h
+    diff_w = expected_width - w
     img_batch = F.pad(
         img_batch,
         (diff_w // 2, diff_w - diff_w // 2, diff_h // 2, diff_h - diff_h // 2),
@@ -59,10 +59,10 @@ def k_centroid_preprocess(img_batch, B, C, H, W, height_down, width_down):
 
     # Unfold the input batch into patches
     patches = F.unfold(img_batch, kernel_size=kernel_size, stride=stride)
-    patches = patches.reshape(B, C, -1, patches.shape[-1]).permute(0, 3, 2, 1)
-    # patches shape: (B, num_patches, kernel_h * kernel_w, C)
+    patches = patches.reshape(b, c, -1, patches.shape[-1]).permute(0, 3, 2, 1)
+    # patches shape: (b, num_patches, kernel_h * kernel_w, c)
 
-    # Reshape patches for batched k-means: [B * num_patches, num_pixels_in_patch, C]
+    # Reshape patches for batched k-means: [b * num_patches, num_pixels_in_patch, c]
     num_patches = patches.shape[1]
     patches = patches.flatten(0, 1)
     return patches, num_patches
@@ -70,31 +70,31 @@ def k_centroid_preprocess(img_batch, B, C, H, W, height_down, width_down):
 
 @compile_wrapper
 def k_centroid_postprocess(
-    patches, kmeans_centroids, num_patches, B, C, height_down, width_down
+    patches, kmeans_centroids, num_patches, b, c, height_down, width_down
 ):
-    # patches: [B, num_patches, num_pixels_in_patch, 1, C]
-    # kmeans_centroids: [B, num_patches, 1, centroids_k, C]
-    # dist: [B, num_patches, num_pixels_in_patch, centroids_k]
+    # patches: [b, num_patches, num_pixels_in_patch, 1, c]
+    # kmeans_centroids: [b, num_patches, 1, centroids_k, c]
+    # dist: [b, num_patches, num_pixels_in_patch, centroids_k]
     # Determine the closest centroid for each original pixel in the patch
     distances = torch.sum(
         (patches.unsqueeze(-2) - kmeans_centroids.unsqueeze(-3)) ** 2, dim=-1
     ).sum(dim=1)
     closest_centroids_indices = torch.argmin(distances, dim=-1)
-    # closest_centroids_indices: [B, num_patches, num_pixels_in_patch]
+    # closest_centroids_indices: [b, num_patches, num_pixels_in_patch]
 
     # Get the colors of the closest centroids for each pixel in the patches
     closest_centroid_colors = torch.gather(
-        kmeans_centroids, 1, closest_centroids_indices[:, None, None].expand(-1, -1, C)
+        kmeans_centroids, 1, closest_centroids_indices[:, None, None].expand(-1, -1, c)
     )
 
     # Reshape back to the patch structure
     quantized_patches_reshaped = (
-        closest_centroid_colors.reshape(B, num_patches, -1, C)
+        closest_centroid_colors.reshape(b, num_patches, -1, c)
         .permute(0, 3, 2, 1)
         .flatten(1, 2)
     )
 
-    return quantized_patches_reshaped.reshape(B, C, height_down, width_down)
+    return quantized_patches_reshaped.reshape(b, c, height_down, width_down)
 
 
 # @compile_wrapper
@@ -103,51 +103,51 @@ def k_centroid_downscale_torch(img_batch, target_size=128, centroids_k=2):
     PyTorch implementation of k-centroid downscaling, optimized for batch processing.
 
     Args:
-        img_batch (torch.Tensor): Input batch of images (B, C, H, W), assuming channels are RGB.
+        img_batch (torch.Tensor): Input batch of images (b, c, h, w), assuming channels are RGB.
         target_size (int): The target size for the downscaled image (longest side).
         centroids_k (int): Number of centroids for k-means clustering.
 
     Returns:
-        torch.Tensor: Batch of downscaled images (B, C, H_down, W_down).
+        torch.Tensor: batch of downscaled images (b, c, h_down, w_down).
     """
-    B, C, H, W = img_batch.shape
+    b, c, h, w = img_batch.shape
 
-    ratio = W / H
+    ratio = w / h
     height = (target_size**2 / ratio) ** 0.5
     width = height * ratio
     height_down = int(height)
     width_down = int(width)
 
     patches, num_patches = k_centroid_preprocess(
-        img_batch, B, C, H, W, height_down, width_down
+        img_batch, b, c, h, w, height_down, width_down
     )
     kmeans_centroids = batched_kmeans(patches, num_clusters=centroids_k)
     return k_centroid_postprocess(
-        patches, kmeans_centroids, num_patches, B, C, height_down, width_down
+        patches, kmeans_centroids, num_patches, b, c, height_down, width_down
     )
 
 
 if __name__ == "__main__":
-    # Load the image using OpenCV
+    # Load the image using OpencV
     img_cv2 = cv2.imread("./img/snow-leopard.webp")
     if img_cv2 is None:
         exit(1)
 
-    # Convert to RGB and normalize to [0, 1]
-    img_rgb = cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB)
+    # convert to RGb and normalize to [0, 1]
+    img_rgb = cv2.cvtcolor(img_cv2, cv2.cOLOR_bGR2RGb)
     img_torch = torch.from_numpy(img_rgb).permute(2, 0, 1).float() / 255.0
     img_torch = img_torch.unsqueeze(0)  # Add batch dimension
 
     # Apply the downscaling
     downscaled_torch = k_centroid_downscale_torch(img_torch, centroids_k=2)
 
-    # Convert the downscaled PyTorch tensor back to a NumPy array for saving
+    # convert the downscaled PyTorch tensor back to a NumPy array for saving
     downscaled_np = (
         downscaled_torch.squeeze(0).permute(1, 2, 0).clamp(0, 1).numpy() * 255
     ).astype(np.uint8)
 
-    # Convert back to BGR for saving with OpenCV
-    downscaled_bgr = cv2.cvtColor(downscaled_np, cv2.COLOR_RGB2BGR)
+    # convert back to bGR for saving with OpencV
+    downscaled_bgr = cv2.cvtcolor(downscaled_np, cv2.cOLOR_RGb2bGR)
 
     # Save the downscaled image
     cv2.imwrite("./img/snow-leopard-k-centroid.png", downscaled_bgr)

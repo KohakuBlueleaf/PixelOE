@@ -69,8 +69,8 @@ def outline_expansion(img, erode=2, dilate=2, k=16, avg_scale=10, dist_scale=3):
 
 if __name__ == "__main__":
     img = cv2.imread("img/dragon-girl.webp")
-    H, W, _ = img.shape
-    ratio = W / H
+    h, w, _ = img.shape
+    ratio = w / h
     target_pixel_count = (1024**2 / ratio) ** 0.5
     img = cv2.resize(img, (int(target_pixel_count * ratio), int(target_pixel_count)))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

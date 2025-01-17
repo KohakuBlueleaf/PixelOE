@@ -26,11 +26,11 @@ def pixelize(
     no_downscale=False,
 ):
     weighted_color = colors is not None and colors_with_weight
-    H, W, _ = img.shape
+    h, w, _ = img.shape
     if pixel_size is None:
         pixel_size = patch_size
 
-    ratio = W / H
+    ratio = w / h
     if isiterable(target_size) and len(target_size) > 1:
         target_org_hw = tuple([int(i * patch_size) for i in target_size][:2])
         ratio = target_org_hw[0] / target_org_hw[1]
