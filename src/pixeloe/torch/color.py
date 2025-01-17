@@ -171,7 +171,7 @@ def error_diffusion_iter(output, height, width, palette, kernel):
         error_padded,
         kernel.view(1, 1, 2, 3).repeat(3, 1, 1, 1),
         padding=0,
-        groups=3,
+        groups=C,
     )
     return diffused_error
 
@@ -285,7 +285,7 @@ def quantize_and_dither(image, num_centroids=32, dither_method="error_diffusion"
 
     # Then apply dithering using the generated palette
     dithered_img = parallel_dither_with_palette(
-        image, quantized_img, palette, method=dither_method
+        image, quantized_img, palette.to(image), method=dither_method
     )
 
     return dithered_img

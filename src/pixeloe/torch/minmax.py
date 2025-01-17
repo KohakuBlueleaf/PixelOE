@@ -17,7 +17,7 @@ def dilate_cont(img, kernel, iterations=1):
     pH, pW = kH // 2, kW // 2
 
     # Prepare the kernel by reshaping for patch addition
-    kernel_flat = kernel.view(1, 1, kH * kW, 1).to(img.device)
+    kernel_flat = kernel.view(1, 1, kH * kW, 1)
 
     x = img
     for _ in range(iterations):
@@ -54,7 +54,7 @@ def erode_cont(img, kernel, iterations=1):
     pH, pW = kH // 2, kW // 2
 
     # Prepare the kernel by reshaping for patch addition
-    kernel_flat = kernel.view(1, 1, kH * kW, 1).to(img.device)
+    kernel_flat = kernel.view(1, 1, kH * kW, 1)
 
     x = img
     for _ in range(iterations):

@@ -63,15 +63,15 @@ def outline_expansion(
     """
     w = expansion_weight(img, k, k // 2, avg_scale, dist_scale)
 
-    e = erode_cont(img, KERNELS[erode_iters], 1)
-    d = dilate_cont(img, KERNELS[dilate_iters], 1)
+    e = erode_cont(img, KERNELS[erode_iters].to(img), 1)
+    d = dilate_cont(img, KERNELS[dilate_iters].to(img), 1)
 
     out = e * w + d * (1.0 - w)
 
     oc_iter = max(erode_iters - 2, dilate_iters - 2, 1)
 
-    out = erode_cont(out, KERNELS[oc_iter], 1)
-    out = dilate_cont(out, KERNELS[oc_iter], 2)
-    out = erode_cont(out, KERNELS[oc_iter], 1)
+    out = erode_cont(out, KERNELS[oc_iter].to(img), 1)
+    out = dilate_cont(out, KERNELS[oc_iter].to(img), 2)
+    out = erode_cont(out, KERNELS[oc_iter].to(img), 1)
 
     return out, w

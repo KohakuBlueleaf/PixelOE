@@ -25,15 +25,15 @@ def pixelize(
     """
 
     if thickness > 0:
-        expanded, w = outline_expansion(img_t, thickness, thickness, patch_size)
+        expanded, _ = outline_expansion(img_t, thickness, thickness, patch_size)
     else:
         expanded = img_t
 
     if do_color_match:
         expanded = match_color(expanded, img_t)
 
-    H, W = expanded.shape[2], expanded.shape[3]
-    ratio = W / H
+    h, w = expanded.shape[2], expanded.shape[3]
+    ratio = w / h
     out_h = int((target_size**2 / ratio) ** 0.5)
     out_w = int(out_h * ratio)
 
