@@ -3,9 +3,10 @@ import torch.nn.functional as F
 
 from .outline import outline_expansion
 from .color import match_color, quantize_and_dither
-from .downscale.contrast_based import contrast_downscale
 
+from .downscale.contrast_based import contrast_downscale
 from .downscale.k_centroid import k_centroid_downscale_torch
+from .downscale.lanczos import lanczos_resize
 
 
 def pixelize(
@@ -45,12 +46,15 @@ def pixelize(
     if do_color_match:
         expanded = match_color(expanded, img_t)
 
-    if mode == "contrast":
-        down = contrast_downscale(expanded, pixel_size)
-    elif mode == "k_centroid":
-        down = k_centroid_downscale_torch(expanded, pixel_size, 2)
-    else:
-        down = F.interpolate(expanded, size=(out_h, out_w), mode="nearest-exact")
+    match mode:
+        case "contrast":
+            down = contrast_downscale(expanded, pixel_size)
+        case "k_centroid":
+            down = k_centroid_downscale_torch(expanded, pixel_size, 2)
+        case "lanczos":
+            down = lanczos_resize(expanded, size=(out_h, out_w))
+        case mode:
+            down = F.interpolate(expanded, size=(out_h, out_w), mode=mode)
 
     if do_quant:
         down_final = quantize_and_dither(

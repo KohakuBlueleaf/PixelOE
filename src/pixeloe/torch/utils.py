@@ -48,16 +48,28 @@ def to_numpy(tensor):
     )
 
 
+def isiterable(obj):
+    try:
+        iter(obj)
+        return True
+    except TypeError:
+        return False
+
+
 def pre_resize(
     img_pil,
     target_size=128,
     patch_size=8,
 ):
-    W, H = img_pil.size
-    ratio = W / H
-    in_h = (target_size**2 / ratio) ** 0.5
-    in_w = int(in_h * ratio) * patch_size
-    in_h = int(in_h) * patch_size
+    if isiterable(target_size):
+        in_w = target_size[0] * patch_size
+        in_h = target_size[1] * patch_size
+    else:
+        W, H = img_pil.size
+        ratio = W / H
+        in_h = (target_size**2 / ratio) ** 0.5
+        in_w = int(in_h * ratio) * patch_size
+        in_h = int(in_h) * patch_size
     img_pil = img_pil.resize((in_w, in_h), Image.Resampling.BICUBIC)
     img_t = to_tensor(img_pil)
     return img_t[None]
