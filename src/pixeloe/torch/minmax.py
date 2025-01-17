@@ -1,10 +1,10 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-from .env import TORCH_COMPILE
+from .utils import compile_wrapper
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def dilate_cont(img, kernel, iterations=1):
     # Ensure input has a batch dimension
     squeeze_output = False
@@ -41,7 +41,7 @@ def dilate_cont(img, kernel, iterations=1):
     return x
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def erode_cont(img, kernel, iterations=1):
     # Ensure input has a batch dimension
     squeeze_output = False

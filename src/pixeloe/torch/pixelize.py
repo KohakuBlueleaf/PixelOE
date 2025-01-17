@@ -8,7 +8,7 @@ from .downscale.contrast_based import contrast_downscale
 from .downscale.k_centroid import k_centroid_downscale_torch
 
 
-def pixelize_pytorch(
+def pixelize(
     img_t,
     target_size=256,
     patch_size=6,
@@ -16,7 +16,7 @@ def pixelize_pytorch(
     mode="contrast",
     do_color_match=True,
     do_quant=False,
-    K=32,
+    num_centroids=32,
     quant_mode="ordered",
 ):
     """
@@ -45,7 +45,7 @@ def pixelize_pytorch(
         down = F.interpolate(expanded, size=(out_h, out_w), mode="nearest-exact")
 
     if do_quant:
-        down_final = quantize_and_dither(down, K=K, dither_method=quant_mode)
+        down_final = quantize_and_dither(down, num_centroids=num_centroids, dither_method=quant_mode)
         down_final = match_color(down_final, down)
     else:
         down_final = down

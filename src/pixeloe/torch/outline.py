@@ -2,11 +2,11 @@ import torch
 import torch.nn.functional as F
 from kornia.color import rgb_to_lab
 
-from .env import TORCH_COMPILE
+from .utils import compile_wrapper
 from .minmax import dilate_cont, erode_cont, KERNELS
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def local_stat(tensor, kernel, stride, stat="median"):
     B, C, H, W = tensor.shape
     patches = F.unfold(tensor, kernel_size=kernel, stride=stride, padding=kernel // 2)
@@ -33,7 +33,7 @@ def local_stat(tensor, kernel, stride, stat="median"):
     return out / (div + 1e-8)
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def expansion_weight(img, k=16, stride=4, avg_scale=10, dist_scale=3):
     """
     Compute a weight matrix for outline expansion.

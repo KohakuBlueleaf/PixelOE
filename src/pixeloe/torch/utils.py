@@ -3,7 +3,18 @@ import torch
 from torchvision.transforms.functional import to_tensor
 from PIL import Image
 
-from .env import TORCH_COMPILE
+from . import env
+
+
+def compile_wrapper(func, *args, **kwargs):
+    compiled = torch.compile(func, *args, **kwargs)
+    def runner(*args, **kwargs):
+        print(env.TORCH_COMPILE)
+        if env.TORCH_COMPILE:
+            return compiled(*args, **kwargs)
+        else:
+            return func(*args, **kwargs)
+    return runner
 
 
 def to_numpy(tensor):
@@ -33,7 +44,7 @@ def pre_resize(
     return img_t[None]
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def batched_kmeans_iter(datas, centroids, cs=None):
     """
     datas: (B, N, C)

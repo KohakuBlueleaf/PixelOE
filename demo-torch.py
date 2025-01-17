@@ -4,20 +4,22 @@ import torch
 from torchvision.transforms.functional import to_tensor
 from PIL import Image
 
-from pixeloe.torch.pixelize import pixelize_pytorch
+import pixeloe.torch.env as pixeloe_env
+from pixeloe.torch.pixelize import pixelize
 from pixeloe.torch.outline import outline_expansion
 from pixeloe.torch.utils import to_numpy, pre_resize
 from pixeloe.torch.minmax import dilate_cont, erode_cont, KERNELS
-from pixeloe.torch.env import TORCH_COMPILE
 
 
 if __name__ == "__main__":
     img = Image.open("./img/snow-leopard.webp")
 
+    pixeloe_env.TORCH_COMPILE = True
     img_t = to_tensor(img).cuda().half()[None]
     oe_t, w = outline_expansion(img_t, 6, 6, 8, 10, 3)
     oe = Image.fromarray(to_numpy(oe_t)[0])
     oe.save("./img/snow-leopard-oe-orig.webp", lossless=True, quality=0)
+    pixeloe_env.TORCH_COMPILE = False
 
     patch_size = 5
     target_size = 240
@@ -70,7 +72,7 @@ if __name__ == "__main__":
     print(
         f"  Pixelized Size: {img_t.shape[3]//patch_size}x{img_t.shape[2]//patch_size}"
     )
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),  # for testing batch process
         target_size=target_size,
         patch_size=patch_size,
@@ -81,7 +83,7 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel.webp", lossless=True, quality=0)
     print("    Pixlize test done")
 
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
         target_size=target_size,
         patch_size=patch_size,
@@ -93,42 +95,42 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel-k.webp", lossless=True, quality=0)
     print("    K-Centroid test done")
 
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
         target_size=target_size,
         patch_size=patch_size,
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
-        K=256,
+        num_centroids=256,
         quant_mode="",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-256c.webp", lossless=True, quality=0)
     print("    Color Quantization test done")
 
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
         target_size=target_size,
         patch_size=patch_size,
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
-        K=256,
+        num_centroids=256,
         quant_mode="ordered",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-256c-d.webp", lossless=True, quality=0)
     print("    Ordered Dithering test done")
 
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
         target_size=target_size,
         patch_size=patch_size,
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
-        K=256,
+        num_centroids=256,
         quant_mode="error_diffusion",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
@@ -142,7 +144,7 @@ if __name__ == "__main__":
     print(
         f"  Pixelized Size: {img_t_lg.shape[3]//lg_patch_size}x{img_t_lg.shape[2]//lg_patch_size}"
     )
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
@@ -153,7 +155,7 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel-lg.webp", lossless=True, quality=0)
     print("    Pixlize test done")
 
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
@@ -165,42 +167,42 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel-lg-k.webp", lossless=True, quality=0)
     print("    K-Centroid test done")
 
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
         do_quant=True,
-        K=256,
+        num_centroids=256,
         quant_mode="",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-lg-256c.webp", lossless=True, quality=0)
     print("    Color Quantization test done")
 
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
         do_quant=True,
-        K=256,
+        num_centroids=256,
         quant_mode="ordered",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-lg-256c-d.webp", lossless=True, quality=0)
     print("    Ordered Dithering test done")
 
-    pixel_art_t = pixelize_pytorch(
+    pixel_art_t = pixelize(
         img_t_lg.repeat(2, 1, 1, 1),
         target_size=lg_target_size,
         patch_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
         do_quant=True,
-        K=256,
+        num_centroids=256,
         quant_mode="error_diffusion",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
@@ -218,7 +220,7 @@ if __name__ == "__main__":
     for bs in [1, 2, 4, 8, 16]:
         # Warmup
         for _ in range(10):
-            pixelize_pytorch(
+            pixelize(
                 img_t.repeat(bs, 1, 1, 1),
                 target_size=target_size,
                 patch_size=patch_size,
@@ -227,7 +229,7 @@ if __name__ == "__main__":
             )
         torch.cuda.empty_cache()
         t = timeit(
-            """pixelize_pytorch(
+            """pixelize(
                 img_t.repeat(bs, 1, 1, 1),
                 target_size=target_size,
                 patch_size=patch_size,
@@ -250,7 +252,7 @@ if __name__ == "__main__":
     for bs in [1, 2, 4, 8, 16]:
         # Warmup
         for _ in range(10):
-            pixelize_pytorch(
+            pixelize(
                 img_t_lg.repeat(bs, 1, 1, 1),
                 target_size=target_size,
                 patch_size=patch_size,
@@ -259,7 +261,7 @@ if __name__ == "__main__":
             )
         torch.cuda.empty_cache()
         t = timeit(
-            """pixelize_pytorch(
+            """pixelize(
                 img_t_lg.repeat(bs, 1, 1, 1),
                 target_size=lg_target_size,
                 patch_size=lg_patch_size,

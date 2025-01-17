@@ -7,10 +7,10 @@ import numpy as np
 
 from tqdm import trange
 from ..utils import batched_kmeans_iter
-from ..env import TORCH_COMPILE
+from ..utils import compile_wrapper
 
 
-# @torch.compile(disable=not TORCH_COMPILE)
+# @compile_wrapper
 def batched_kmeans(data, num_clusters):
     """
     Performs batched k-means clustering.
@@ -38,7 +38,7 @@ def batched_kmeans(data, num_clusters):
     return centroids
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def k_centroid_preprocess(img_batch, B, C, H, W, height_down, width_down):
     # Calculate scaling factors
     h_factor = H / height_down
@@ -68,7 +68,7 @@ def k_centroid_preprocess(img_batch, B, C, H, W, height_down, width_down):
     return patches, num_patches
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def k_centroid_postprocess(
     patches, kmeans_centroids, num_patches, B, C, height_down, width_down
 ):
@@ -97,7 +97,7 @@ def k_centroid_postprocess(
     return quantized_patches_reshaped.reshape(B, C, height_down, width_down)
 
 
-# @torch.compile(disable=not TORCH_COMPILE)
+# @compile_wrapper
 def k_centroid_downscale_torch(img_batch, target_size=128, centroids_k=2):
     """
     PyTorch implementation of k-centroid downscaling, optimized for batch processing.

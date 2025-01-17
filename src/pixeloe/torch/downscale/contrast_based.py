@@ -2,10 +2,10 @@ import torch
 import torch.nn.functional as F
 from kornia.color import lab_to_rgb, rgb_to_lab
 
-from ..env import TORCH_COMPILE
+from ..utils import compile_wrapper
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def find_pixel_luminance(chunk):
     mid_idx = chunk.shape[2] // 2
     mid = chunk[:, :, mid_idx].unsqueeze(2)
@@ -23,7 +23,7 @@ def find_pixel_luminance(chunk):
     return out
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def contrast_downscale(img, patch_size=8):
     """
     Contrast-based downscaling of an image using unfold to process patches concurrently.

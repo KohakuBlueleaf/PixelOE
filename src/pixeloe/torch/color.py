@@ -7,10 +7,10 @@ import torch.nn.functional as F
 from kornia.color import rgb_to_lab, lab_to_rgb
 
 from .utils import batched_kmeans_iter
-from .env import TORCH_COMPILE
+from .utils import compile_wrapper
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def match_color(source, target, level=5):
     source_lab = rgb_to_lab(source)
     target_lab = rgb_to_lab(target)
@@ -29,7 +29,7 @@ def gaussian_kernel(radius: int, device: torch.device) -> torch.Tensor:
     return kernel_2d / kernel_2d.sum()
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def wavelet_blur(x: torch.Tensor, radius: int) -> torch.Tensor:
     # Create Gaussian kernel
     kernel = gaussian_kernel(radius, x.device)
@@ -45,7 +45,7 @@ def wavelet_blur(x: torch.Tensor, radius: int) -> torch.Tensor:
     return F.conv2d(x_pad, kernel.to(x), groups=x.size(1))
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def wavelet_colorfix(
     inp: torch.Tensor, target: torch.Tensor, level: int = 5
 ) -> torch.Tensor:
@@ -128,7 +128,7 @@ def find_nearest_palette_color(pixel, palette):
     )
 
 
-# @torch.compile(disable=not TORCH_COMPILE)
+# @compile_wrapper
 def find_nearest_palette_colors_with_distance(pixel, palette):
     """
     Find the two nearest colors in the palette for a given pixel and return them
@@ -154,7 +154,7 @@ def find_nearest_palette_colors_with_distance(pixel, palette):
     return top_closest_colors, second_closest_colors, dist_ratio
 
 
-@torch.compile(disable=not TORCH_COMPILE)
+@compile_wrapper
 def error_diffusion_iter(output, height, width, palette, kernel):
     # Find nearest palette colors for current pixels
     B, C, H, W = output.shape
@@ -220,7 +220,7 @@ def generate_bayer_matrix(n, device):
     return _generate_bayer_matrix(n, device) / n**2
 
 
-# @torch.compile(disable=not TORCH_COMPILE)
+# @compile_wrapper
 def ordered_dither(image, height, width, palette, device):
     # ordered dithering
     pattern_size = 8
