@@ -1,0 +1,4 @@
+[client]
+    autosave = true
+    use_standalone_window = false
+    save_path = "./img"
