@@ -1,18 +1,38 @@
+from functools import cache
+
 import numpy as np
 import torch
 from torchvision.transforms.functional import to_tensor
 from PIL import Image
 
 from . import env
+from ..logger import logger
 
 
-def compile_wrapper(func, *args, **kwargs):
-    compiled = torch.compile(func, *args, **kwargs)
+@cache
+def compile_warning_log_once():
+    logger.warning(
+        "Torch compile is not enabled. "
+        "This may result in large vram usage and slow performance."
+    )
+
+
+def compile_wrapper(func):
+    compiled = torch.compile(
+        func,
+        dynamic=True,
+        options={
+            "shape_padding": True,
+        },
+    )
+
     def runner(*args, **kwargs):
         if env.TORCH_COMPILE:
             return compiled(*args, **kwargs)
         else:
+            compile_warning_log_once()
             return func(*args, **kwargs)
+
     return runner
 
 

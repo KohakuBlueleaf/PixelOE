@@ -281,7 +281,9 @@ def quantize_and_dither(image, num_centroids=32, dither_method="error_diffusion"
         Quantized and dithered image tensor
     """
     # First perform k-means color quantization
-    quantized_img, palette, _ = color_quantization_kmeans(image, num_centroids=num_centroids)
+    quantized_img, palette, _ = color_quantization_kmeans(
+        image, num_centroids=num_centroids
+    )
 
     # Then apply dithering using the generated palette
     dithered_img = parallel_dither_with_palette(

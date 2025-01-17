@@ -45,7 +45,9 @@ def pixelize(
         down = F.interpolate(expanded, size=(out_h, out_w), mode="nearest-exact")
 
     if do_quant:
-        down_final = quantize_and_dither(down, num_centroids=num_centroids, dither_method=quant_mode)
+        down_final = quantize_and_dither(
+            down, num_centroids=num_centroids, dither_method=quant_mode
+        )
         down_final = match_color(down_final, down)
     else:
         down_final = down
