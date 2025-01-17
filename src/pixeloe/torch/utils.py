@@ -9,7 +9,6 @@ from . import env
 def compile_wrapper(func, *args, **kwargs):
     compiled = torch.compile(func, *args, **kwargs)
     def runner(*args, **kwargs):
-        print(env.TORCH_COMPILE)
         if env.TORCH_COMPILE:
             return compiled(*args, **kwargs)
         else:
