@@ -86,6 +86,26 @@ def wavelet_colorfix(
     return high_freq + target_x
 
 
+@compile_wrapper
+def centroid_generator(maxv, minv, num_centroids, device):
+    device = maxv.device
+    b, _, c = maxv.shape
+    if num_centroids < 8:
+        interp = torch.linspace(0, 1, num_centroids, device=device)[:, None]
+        centroids = interp * minv + (1 - interp) * maxv
+    else:
+        base_num = num_centroids // 4
+        cent_num = num_centroids - base_num * 3
+        interp_base = torch.linspace(0, 1, base_num + 1, device=device)[1:, None, None]
+        interp_base = interp_base * torch.eye(c, device=device)
+        interp_base = interp_base.reshape(1, -1, c)
+        interp_cent = torch.linspace(0, 1, cent_num, device=device)[:, None]
+        centroids_base = interp_base * minv + (1 - interp_base) * maxv
+        centroids_cent = interp_cent * minv + (1 - interp_cent) * maxv
+        centroids = torch.cat([centroids_base, centroids_cent], dim=1)
+    return centroids
+
+
 def color_quantization_kmeans(img, num_centroids=32, weights=None, repeat_mode=False):
     """
     Naive k-means color quantization on an image tensor.
@@ -97,10 +117,9 @@ def color_quantization_kmeans(img, num_centroids=32, weights=None, repeat_mode=F
         weights = weights.reshape(b, -1)
 
     # Initialize centroids using min-max interpolation
-    maxv = pixels.max(dim=1, keepdim=True)
-    minv = pixels.min(dim=1, keepdim=True)
-    interp = torch.linspace(0, 1, num_centroids, device=img.device)[None, :, None]
-    centroids = interp * minv.values + (1 - interp) * maxv.values
+    maxv = pixels.max(dim=1, keepdim=True).values
+    minv = pixels.min(dim=1, keepdim=True).values
+    centroids = centroid_generator(maxv, minv, num_centroids, img.device)
 
     if repeat_mode and weights is not None:
         repeat_table = generate_repeat_table(
