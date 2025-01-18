@@ -8,6 +8,7 @@ from kornia.color import rgb_to_lab, lab_to_rgb
 
 from .utils import batched_kmeans_iter
 from .utils import compile_wrapper
+from .utils import generate_repeat_table, repeat_elements
 
 
 @compile_wrapper
@@ -85,13 +86,15 @@ def wavelet_colorfix(
     return high_freq + target_x
 
 
-def color_quantization_kmeans(img, num_centroids=32):
+def color_quantization_kmeans(img, num_centroids=32, weights=None, repeat_mode=False):
     """
     Naive k-means color quantization on an image tensor.
     Returns both quantized image and centroids for later use.
     """
-    B, C, H, W = img.shape
-    pixels = img.permute(0, 2, 3, 1).reshape(B, -1, C)
+    b, c, h, w = img.shape
+    pixels = img.permute(0, 2, 3, 1).reshape(b, -1, c)
+    if weights is not None:
+        weights = weights.reshape(b, -1)
 
     # Initialize centroids using min-max interpolation
     maxv = pixels.max(dim=1, keepdim=True)
@@ -99,20 +102,30 @@ def color_quantization_kmeans(img, num_centroids=32):
     interp = torch.linspace(0, 1, num_centroids, device=img.device)[None, :, None]
     centroids = interp * minv.values + (1 - interp) * maxv.values
 
+    if repeat_mode and weights is not None:
+        repeat_table = generate_repeat_table(
+            weights.float(), pixels.shape[1], pixels.shape[1] * 4
+        )
+        inputs = repeat_elements(pixels, repeat_table).unsqueeze(2)
+        weights = None
+    else:
+        if weights is not None:
+            weights = weights[:, :, None, None]
+        inputs = pixels.unsqueeze(2)
     pixels = pixels.unsqueeze(2)
     cs = torch.arange(num_centroids, device=img.device)
 
     for _ in range(2 * int(num_centroids**0.5)):
-        centroids, diff = batched_kmeans_iter(pixels, centroids, cs)
+        centroids, diff = batched_kmeans_iter(inputs, centroids, cs, weights)
         if diff < 1 / 256:
             # if new centroids are not changing more than 1 in 8bit depth, break
             break
     dists = (pixels - centroids.unsqueeze(1)).pow(2).sum(dim=-1)
-    labels = dists.argmin(dim=-1).unsqueeze(-1).expand(-1, -1, C)
+    labels = dists.argmin(dim=-1).unsqueeze(-1).expand(-1, -1, c)
     quant_pixels = torch.gather(centroids, 1, labels)
 
     return (
-        quant_pixels.reshape(B, H, W, C).permute(0, 3, 1, 2),
+        quant_pixels.reshape(b, h, w, c).permute(0, 3, 1, 2),
         centroids,
         labels,
     )
@@ -155,12 +168,12 @@ def find_nearest_palette_colors_with_distance(pixel, palette):
 
 
 @compile_wrapper
-def error_diffusion_iter(output, height, width, palette, kernel):
+def error_diffusion_iter(output, palette, kernel):
     # Find nearest palette colors for current pixels
-    B, C, H, W = output.shape
-    current_pixels = output.permute(0, 2, 3, 1).reshape(B, -1, C)
+    b, c, h, w = output.shape
+    current_pixels = output.permute(0, 2, 3, 1).reshape(b, -1, c)
     quantized_pixels = find_nearest_palette_color(current_pixels, palette)
-    quantized = quantized_pixels.reshape(B, H, W, 3).permute(0, 3, 1, 2)
+    quantized = quantized_pixels.reshape(b, h, w, c).permute(0, 3, 1, 2)
 
     # Calculate error
     error = output - quantized
@@ -169,14 +182,15 @@ def error_diffusion_iter(output, height, width, palette, kernel):
     error_padded = F.pad(error, (1, 1, 1, 1), mode="reflect")
     diffused_error = F.conv2d(
         error_padded,
-        kernel.view(1, 1, 2, 3).repeat(3, 1, 1, 1),
+        kernel.reshape(1, 1, 2, 3).repeat(3, 1, 1, 1),
         padding=0,
-        groups=C,
+        groups=c,
     )
     return diffused_error
 
 
-def parallel_error_diffusion(image, height, width, palette, device):
+def parallel_error_diffusion(image, palette, device):
+    b, c, h, w = image.shape
     # Error diffusion kernel
     kernel = (
         torch.tensor([[0, 0, 7], [3, 5, 1]], dtype=image.dtype, device=device) / 16.0
@@ -186,18 +200,17 @@ def parallel_error_diffusion(image, height, width, palette, device):
     output = image.clone()
 
     # Process image in parallel using strided convolutions
-    for y in range(0, height, 2):
-        diffused_error = error_diffusion_iter(output, height, width, palette, kernel)
+    for y in range(0, h, 2):
+        diffused_error = error_diffusion_iter(output, palette, kernel)
 
         # Update next rows
-        if y + 2 < height:
+        if y + 2 < h:
             output[:, :, y + 1 : y + 3] += diffused_error[:, :, y + 1 : y + 3]
 
     # Final quantization
-    B, C, H, W = output.shape
-    final_pixels = output.permute(0, 2, 3, 1).reshape(B, -1, C)
+    final_pixels = output.permute(0, 2, 3, 1).reshape(b, -1, c)
     final_quantized = find_nearest_palette_color(final_pixels, palette)
-    return final_quantized.reshape(B, H, W, 3).permute(0, 3, 1, 2)
+    return final_quantized.reshape(b, h, w, c).permute(0, 3, 1, 2)
 
 
 @lru_cache(maxsize=32)
@@ -221,18 +234,18 @@ def generate_bayer_matrix(n, device):
 
 
 # @compile_wrapper
-def ordered_dither(image, height, width, palette, device):
+def ordered_dither(image, palette, device):
+    b, c, h, w = image.shape
     # ordered dithering
     pattern_size = 8
     bayer = generate_bayer_matrix(pattern_size, device)
     bayer = bayer.repeat(
-        (height + pattern_size - 1) // pattern_size,
-        (width + pattern_size - 1) // pattern_size,
-    )[:height, :width]
+        (h + pattern_size - 1) // pattern_size,
+        (w + pattern_size - 1) // pattern_size,
+    )[:h, :w]
 
     # Reshape image and find two nearest palette colors for each pixel
-    B, C, H, W = image.shape
-    pixels = image.permute(0, 2, 3, 1).reshape(B, -1, C)
+    pixels = image.permute(0, 2, 3, 1).reshape(b, -1, c)
     color1, color2, dist_ratio = find_nearest_palette_colors_with_distance(
         pixels, palette
     )
@@ -243,7 +256,7 @@ def ordered_dither(image, height, width, palette, device):
     # Choose between color1 and color2 based on threshold and distance ratio
     mask = (threshold > dist_ratio).float()
     output_pixels = color1 * mask + color2 * (1 - mask)
-    return output_pixels.reshape(B, H, W, 3).permute(0, 3, 1, 2)
+    return output_pixels.reshape(b, h, w, c).permute(0, 3, 1, 2)
 
 
 def parallel_dither_with_palette(image, quantized, palette, method="error_diffusion"):
@@ -256,19 +269,19 @@ def parallel_dither_with_palette(image, quantized, palette, method="error_diffus
         method: 'error_diffusion' or 'ordered'
     """
     device = image.device
-    _, _, H, W = image.shape
-
     if method == "error_diffusion":
-        output = parallel_error_diffusion(image, H, W, palette, device)
+        output = parallel_error_diffusion(image, palette, device)
     elif method == "ordered":
-        output = ordered_dither(image, H, W, palette, device)
+        output = ordered_dither(image, palette, device)
     else:
         output = quantized
 
     return output
 
 
-def quantize_and_dither(image, num_centroids=32, dither_method="error_diffusion"):
+def quantize_and_dither(
+    image, weights=None, num_centroids=32, dither_method="error_diffusion"
+):
     """
     Combined color quantization and dithering.
 
@@ -282,7 +295,7 @@ def quantize_and_dither(image, num_centroids=32, dither_method="error_diffusion"
     """
     # First perform k-means color quantization
     quantized_img, palette, _ = color_quantization_kmeans(
-        image, num_centroids=num_centroids
+        image, num_centroids=num_centroids, weights=weights
     )
 
     # Then apply dithering using the generated palette

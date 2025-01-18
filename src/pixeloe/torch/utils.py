@@ -75,17 +75,21 @@ def pre_resize(
     return img_t[None]
 
 
-@compile_wrapper
-def batched_kmeans_iter(datas, centroids, cs=None):
+# @compile_wrapper
+def batched_kmeans_iter(datas, centroids, cs=None, weights=None):
     """
     datas: (B, N, C)
     centroids: (B, K, C)
     cs: (B, N)
+    weights: (B, N, 1, 1)
     """
     K = centroids.shape[1]
     if cs is None:
         cs = torch.arange(K, device=datas.device)
-    dists = (datas - centroids.unsqueeze(1)).pow(2).sum(dim=-1)
+    dists = (datas - centroids.unsqueeze(1)).pow(2)
+    if weights is not None:
+        dists = dists * weights
+    dists = dists.sum(dim=-1)
     labels = dists.argmin(dim=-1).unsqueeze(-1).repeat(1, 1, K)
     masks = labels == cs
     mask_valid = masks.sum(dim=1) > 0
@@ -94,3 +98,69 @@ def batched_kmeans_iter(datas, centroids, cs=None):
     new_centroids = torch.where(mask_valid[:, :, None], cluster_means, centroids)
     diff = torch.max((new_centroids - centroids).abs())
     return new_centroids, diff
+
+
+def repeat_elements(data, repeat_counts):
+    B, _, D = data.shape
+
+    # Flatten batch dimension for repeat_interleave
+    flat_data = data.reshape(-1, D)  # [B*N, D]
+    flat_counts = repeat_counts.reshape(-1)  # [B*N]
+
+    # Repeat elements
+    repeated = torch.repeat_interleave(flat_data, flat_counts, dim=0)
+
+    # Reshape back to [B, N2, D]
+    N2 = repeat_counts.sum(dim=1)[0]  # Assuming all batches have same N2
+    return repeated.reshape(B, N2, D)
+
+
+def generate_repeat_table(weights, N, N2):
+    """
+    Generate a repeat table ensuring each element is repeated at least once.
+
+    Args:
+        weights: torch.Tensor of shape [B, N] containing weights for each element
+        N: Original sequence length
+        N2: Target sequence length after repeating (must be >= N)
+
+    Returns:
+        torch.Tensor of shape [B, N] containing integer repeat counts, all >= 1
+    """
+    if N2 < N:
+        raise ValueError(
+            f"N2 ({N2}) must be >= N ({N}) to ensure at least one repeat per element"
+        )
+
+    B = weights.shape[0]
+
+    # Handle negative or zero weights
+    weights = torch.clamp(weights, min=1e-8)
+
+    # Normalize weights with numerical stability
+    log_weights = torch.log(weights)
+    log_weights_normalized = log_weights - torch.logsumexp(
+        log_weights, dim=1, keepdim=True
+    )
+    normalized_weights = torch.exp(log_weights_normalized)
+
+    # Calculate remaining counts after ensuring minimum of 1
+    remaining_N2 = N2 - N
+
+    # Distribute remaining counts according to weights
+    remaining_counts = normalized_weights * remaining_N2
+    floor_counts = torch.floor(remaining_counts)
+    remainders = remaining_counts - floor_counts
+
+    # Initialize repeat counts with 1 for each element
+    repeat_counts = torch.ones_like(weights, dtype=torch.long)
+    repeat_counts = repeat_counts + floor_counts.long()
+
+    # Distribute any remaining counts
+    remaining = (remaining_N2 - floor_counts.sum(dim=1, keepdim=True)).long()
+    _, top_remainder_indices = torch.topk(remainders, k=remaining.max().item(), dim=1)
+
+    for b in range(B):
+        repeat_counts[b, top_remainder_indices[b, : remaining[b]]] += 1
+
+    return repeat_counts
