@@ -19,7 +19,7 @@ if __name__ == "__main__":
     oe_t, w = outline_expansion(img_t, 6, 6, 8, 10, 3)
     oe = Image.fromarray(to_numpy(oe_t)[0])
     oe.save("./img/snow-leopard-oe-orig.webp", lossless=True, quality=0)
-    # pixeloe_env.TORCH_COMPILE = False
+    pixeloe_env.TORCH_COMPILE = False
 
     patch_size = 5
     target_size = 240
@@ -99,11 +99,11 @@ if __name__ == "__main__":
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
-        num_centroids=256,
-        quant_mode="",
+        num_colors=128,
+        dither_mode="",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-256c.webp", lossless=True, quality=0)
+    pixel_art.save("./img/snow-leopard-pixel-128c.webp", lossless=True, quality=0)
     print("    Color Quantization test done")
 
     pixel_art_t = pixelize(
@@ -112,8 +112,24 @@ if __name__ == "__main__":
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
-        num_centroids=256,
-        quant_mode="ordered",
+        num_colors=128,
+        quant_mode="weighted-kmeans",
+        dither_mode="",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
+    pixel_art.save(
+        "./img/snow-leopard-pixel-128c-weighted.webp", lossless=True, quality=0
+    )
+    print("    Weighted kmeans test done")
+
+    pixel_art_t = pixelize(
+        img_t.repeat(2, 1, 1, 1),
+        pixel_size=patch_size,
+        thickness=thickness,
+        do_color_match=True,
+        do_quant=True,
+        num_colors=256,
+        dither_mode="ordered",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-256c-d.webp", lossless=True, quality=0)
@@ -125,8 +141,8 @@ if __name__ == "__main__":
         thickness=thickness,
         do_color_match=True,
         do_quant=True,
-        num_centroids=256,
-        quant_mode="error_diffusion",
+        num_colors=256,
+        dither_mode="error_diffusion",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-256c-ed.webp", lossless=True, quality=0)
@@ -166,11 +182,11 @@ if __name__ == "__main__":
         thickness=3,
         do_color_match=True,
         do_quant=True,
-        num_centroids=256,
-        quant_mode="",
+        num_colors=128,
+        dither_mode="",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
-    pixel_art.save("./img/snow-leopard-pixel-lg-256c.webp", lossless=True, quality=0)
+    pixel_art.save("./img/snow-leopard-pixel-lg-128c.webp", lossless=True, quality=0)
     print("    Color Quantization test done")
 
     pixel_art_t = pixelize(
@@ -179,8 +195,24 @@ if __name__ == "__main__":
         thickness=3,
         do_color_match=True,
         do_quant=True,
-        num_centroids=256,
-        quant_mode="ordered",
+        num_colors=128,
+        quant_mode="weighted-kmeans",
+        dither_mode="",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
+    pixel_art.save(
+        "./img/snow-leopard-pixel-lg-128c-weighted.webp", lossless=True, quality=0
+    )
+    print("    Weighted kmeans test done")
+
+    pixel_art_t = pixelize(
+        img_t_lg.repeat(2, 1, 1, 1),
+        pixel_size=lg_patch_size,
+        thickness=3,
+        do_color_match=True,
+        do_quant=True,
+        num_colors=256,
+        dither_mode="ordered",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-lg-256c-d.webp", lossless=True, quality=0)
@@ -192,13 +224,14 @@ if __name__ == "__main__":
         thickness=3,
         do_color_match=True,
         do_quant=True,
-        num_centroids=256,
-        quant_mode="error_diffusion",
+        num_colors=256,
+        dither_mode="error_diffusion",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-lg-256c-ed.webp", lossless=True, quality=0)
     print("    Error Diffusion test done")
 
+    exit()
     pixeloe_env.TORCH_COMPILE = True
     N = 200
     print("Start speed test:")

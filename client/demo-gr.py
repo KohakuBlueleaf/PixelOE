@@ -48,6 +48,7 @@ def runner_wrapper(func):
         result = func(*args, **kwargs)
         clean()
         return result
+
     return runner
 
 
@@ -91,8 +92,8 @@ def pixelize_image(
         thickness=thickness,
         mode=downsample_mode,
         do_quant=colors > 0,
-        num_centroids=colors,
-        quant_mode=dither,
+        num_colors=colors,
+        dither_mode=dither,
     )
     result = Image.fromarray(to_numpy(result_t)[0])
     return result
@@ -237,16 +238,22 @@ def change_device(device_name):
 def settings_ui():
     with gr.Row():
         with gr.Column():
-            device = gr.Dropdown(label="Device", choices=avaliabe_devices, value=list(avaliabe_devices)[-1])
+            device = gr.Dropdown(
+                label="Device",
+                choices=avaliabe_devices,
+                value=list(avaliabe_devices)[-1],
+            )
     device.change(change_device, inputs=[device])
 
 
 def introduction_ui():
     with gr.Row():
-        gr.Markdown("""
+        gr.Markdown(
+            """
 # PixelOE: Detail-Oriented ***Pixel***ization based on Contrast-Aware ***O***utline ***E***xpansion.
 **Create stunning pixel art from high-resolution images without AI or complex networks.**
-""")
+"""
+        )
 
 
 def ui():

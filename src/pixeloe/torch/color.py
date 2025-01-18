@@ -280,7 +280,12 @@ def parallel_dither_with_palette(image, quantized, palette, method="error_diffus
 
 
 def quantize_and_dither(
-    image, weights=None, num_centroids=32, dither_method="error_diffusion"
+    image,
+    weights=None,
+    num_centroids=32,
+    quant_mode="kmeans",
+    dither_method="error_diffusion",
+    repeat_mode=False,
 ):
     """
     Combined color quantization and dithering.
@@ -294,9 +299,12 @@ def quantize_and_dither(
         Quantized and dithered image tensor
     """
     # First perform k-means color quantization
-    quantized_img, palette, _ = color_quantization_kmeans(
-        image, num_centroids=num_centroids, weights=weights
-    )
+    if quant_mode == "kmeans":
+        quantized_img, palette, _ = color_quantization_kmeans(
+            image, num_centroids=num_centroids, weights=weights, repeat_mode=repeat_mode
+        )
+    else:
+        raise ValueError(f"Invalid quantization mode: {quant_mode}")
 
     # Then apply dithering using the generated palette
     dithered_img = parallel_dither_with_palette(

@@ -1,12 +1,14 @@
 import torch
 import torch.nn.functional as F
 
-from .outline import outline_expansion
+from .outline import outline_expansion, expansion_weight
 from .color import match_color, quantize_and_dither
 
 from .downscale.contrast_based import contrast_downscale
 from .downscale.k_centroid import k_centroid_downscale_torch
 from .downscale.lanczos import lanczos_resize
+
+from .utils import to_numpy, Image
 
 
 def pixelize(
@@ -16,13 +18,18 @@ def pixelize(
     mode="contrast",
     do_color_match=True,
     do_quant=False,
-    num_centroids=32,
-    quant_mode="ordered",
+    num_colors=32,
+    quant_mode="kmeans",
+    dither_mode="ordered",
 ):
     """
     Main pipeline: pixelize an image using PyTorch.
         img_t: Input RGB image tensor [B,C,H,W] with range [0..1]
     """
+    quant_mode = quant_mode.lower()
+    weighted_quant = do_quant and quant_mode in {"weighted-kmeans", "repeat-kmeans"}
+    repeat_mode = quant_mode == "repeat-kmeans"
+    quant_mode = quant_mode.split("-")[-1]
 
     h, w = img_t.shape[2], img_t.shape[3]
     out_h = h // pixel_size
@@ -37,11 +44,23 @@ def pixelize(
         )
         out_h += 1
         out_w += 1
+    target_size = (out_h * out_w) ** 0.5
 
+    weights = None
     if thickness > 0:
-        expanded, _ = outline_expansion(img_t, thickness, thickness, pixel_size)
+        expanded, weights = outline_expansion(img_t, thickness, thickness, pixel_size)
     else:
         expanded = img_t
+
+    if weighted_quant:
+        if weights is None:
+            weights = expansion_weight(img_t, pixel_size, pixel_size // 2)
+        weights = torch.abs(weights * 2 - 1) * weights
+        weights = F.interpolate(weights, size=(out_h, out_w), mode="bilinear")
+        w_gamma = target_size / 512
+        weights = weights**w_gamma
+    else:
+        weights = None
 
     if do_color_match:
         expanded = match_color(expanded, img_t)
@@ -58,7 +77,12 @@ def pixelize(
 
     if do_quant:
         down_final = quantize_and_dither(
-            down, num_centroids=num_centroids, dither_method=quant_mode
+            down,
+            weights=weights,
+            num_centroids=num_colors,
+            quant_mode=quant_mode,
+            dither_method=dither_mode,
+            repeat_mode=repeat_mode,
         )
         down_final = match_color(down_final, down)
     else:
