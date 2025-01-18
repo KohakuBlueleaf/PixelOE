@@ -47,7 +47,7 @@ if __name__ == "__main__":
         .half()
     )
 
-    print("Start Outline Expansion test:")
+    print("\nStart Outline Expansion test:")
     dilate_t = dilate_cont(img_t.repeat(2, 1, 1, 1), KERNELS[thickness].to(img_t), 1)
     dilate_img = Image.fromarray(to_numpy(dilate_t)[0])
     dilate_img.save("./img/snow-leopard-dilate.webp", lossless=True, quality=0)
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     w.save("./img/snow-leopard-w.webp", lossless=True, quality=0)
     print("Outline Expansion test done")
 
-    print("Start Pixelize test:")
+    print("\nStart Pixelize test:")
     print(f"  Patch Size    : {patch_size}")
     print(f"  Thickness     : {thickness}")
     print(f"  Original Size : {img_t.shape[3]}x{img_t.shape[2]}")
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel-256c-ed.webp", lossless=True, quality=0)
     print("    Error Diffusion test done")
 
-    print("Start Pixelize test:")
+    print("\nStart Pixelize test:")
     print(f"  Patch Size    : {lg_patch_size}")
     print(f"  Thickness     : {lg_thickness}")
     print(f"  Original Size : {img_t_lg.shape[3]}x{img_t_lg.shape[2]}")
@@ -231,16 +231,15 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel-lg-256c-ed.webp", lossless=True, quality=0)
     print("    Error Diffusion test done")
 
-    exit()
     pixeloe_env.TORCH_COMPILE = True
     N = 200
-    print("Start speed test:")
+    print("\nStart speed test:")
     print(f"  {target_size=}")
     print(f"  {patch_size=}")
     print(f"  {thickness=}")
     print(f"  {pixeloe_env.TORCH_COMPILE=}")
     print("  Results:")
-    for bs in [1, 2, 4, 8, 16]:
+    for bs in [1, 2, 4, 8]:
         # Warmup
         for _ in range(10):
             pixelize(
@@ -270,7 +269,7 @@ if __name__ == "__main__":
     print(f"  {thickness=}")
     print(f"  {pixeloe_env.TORCH_COMPILE=}")
     print("  Results:")
-    for bs in [1, 2, 4, 8, 16]:
+    for bs in [1, 2, 4, 8]:
         # Warmup
         for _ in range(10):
             pixelize(

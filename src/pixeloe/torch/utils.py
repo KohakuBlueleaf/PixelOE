@@ -75,7 +75,7 @@ def pre_resize(
     return img_t[None]
 
 
-# @compile_wrapper
+@compile_wrapper
 def batched_kmeans_iter(datas, centroids, cs=None, weights=None):
     """
     datas: (B, N, C)
@@ -100,6 +100,7 @@ def batched_kmeans_iter(datas, centroids, cs=None, weights=None):
     return new_centroids, diff
 
 
+@compile_wrapper
 def repeat_elements(data, repeat_counts):
     B, _, D = data.shape
 
@@ -115,6 +116,7 @@ def repeat_elements(data, repeat_counts):
     return repeated.reshape(B, N2, D)
 
 
+@compile_wrapper
 def generate_repeat_table(weights, N, N2):
     """
     Generate a repeat table ensuring each element is repeated at least once.
