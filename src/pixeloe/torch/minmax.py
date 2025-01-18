@@ -17,20 +17,20 @@ def dilate_cont(img, kernel, iterations=1):
     ph, pw = kh // 2, kw // 2
 
     # Prepare the kernel by reshaping for patch addition
-    kernel_flat = kernel.view(1, 1, kh * kw, 1)
+    kernel_flat = kernel.reshape(1, 1, kh * kw, 1)
 
     x = img
     for _ in range(iterations):
         # Extract sliding patches from the image
         patches = F.unfold(x, kernel_size=(kh, kw), stride=1, padding=(ph, pw))
         # Reshape patches to shape (n, c, kh*kw, h*w)
-        patches = patches.view(n, c, kh * kw, h * w)
+        patches = patches.reshape(n, c, kh * kw, h * w)
         # Add kernel weights to each patch element
         patches = patches + kernel_flat - 1
         # Perform max pooling over the kernel window to get dilated values
         x_vals = patches.max(dim=2).values
         # Reshape the result back to the image shape
-        x = x_vals.view(n, c, h, w)
+        x = x_vals.reshape(n, c, h, w)
 
     # clamp the output to [0,1] to avoid super-bright values
     x = x.clamp(0, 1)
@@ -54,20 +54,20 @@ def erode_cont(img, kernel, iterations=1):
     ph, pw = kh // 2, kw // 2
 
     # Prepare the kernel by reshaping for patch addition
-    kernel_flat = kernel.view(1, 1, kh * kw, 1)
+    kernel_flat = kernel.reshape(1, 1, kh * kw, 1)
 
     x = img
     for _ in range(iterations):
         # Extract sliding patches from the image
         patches = F.unfold(x, kernel_size=(kh, kw), stride=1, padding=(ph, pw))
         # Reshape patches to shape (n, c, kh*kw, h*w)
-        patches = patches.view(n, c, kh * kw, h * w)
+        patches = patches.reshape(n, c, kh * kw, h * w)
         # Add kernel weights to each patch element
         patches = patches - kernel_flat + 1
         # Perform min pooling over the kernel window to get eroded values
         x_vals = patches.min(dim=2).values
         # Reshape the result back to the image shape
-        x = x_vals.view(n, c, h, w)
+        x = x_vals.reshape(n, c, h, w)
 
     # If we added a batch dimension earlier, remove it
     if squeeze_output:
