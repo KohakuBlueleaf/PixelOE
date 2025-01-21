@@ -178,3 +178,13 @@ cv2.imwrite("img/test2.webp", img)
     howpublished=\url{https://github.com/KohakuBlueleaf/PixelOE},
 }
 ```
+
+## Star History
+
+<a href="https://star-history.com/#KohakuBlueleaf/PixelOE&Timeline">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Timeline&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Timeline" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Timeline" />
+ </picture>
+</a>
