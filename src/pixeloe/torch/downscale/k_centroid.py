@@ -98,7 +98,7 @@ def k_centroid_postprocess(
 
 
 # @compile_wrapper
-def k_centroid_downscale_torch(img_batch, pixel_size=128, centroids_k=3):
+def k_centroid_downscale_torch(img_batch, pixel_size=128, centroids_k=2):
     """
     PyTorch implementation of k-centroid downscaling, optimized for batch processing.
 
