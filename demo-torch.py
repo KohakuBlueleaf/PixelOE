@@ -11,11 +11,17 @@ from pixeloe.torch.utils import to_numpy, pre_resize
 from pixeloe.torch.minmax import dilate_cont, erode_cont, KERNELS
 
 
+DEVICE = "cuda"
+DTYPE = torch.float16
+COMPILE = True
+N = 200
+
+
 if __name__ == "__main__":
     img = Image.open("./img/snow-leopard.webp")
 
-    pixeloe_env.TORCH_COMPILE = True
-    img_t = to_tensor(img).cuda().half()[None]
+    pixeloe_env.TORCH_COMPILE = COMPILE
+    img_t = to_tensor(img).to(DEVICE).to(DTYPE)[None]
     oe_t, w = outline_expansion(img_t, 6, 6, 8, 10, 3)
     oe = Image.fromarray(to_numpy(oe_t)[0])
     oe.save("./img/snow-leopard-oe-orig.webp", lossless=True, quality=0)
@@ -34,8 +40,8 @@ if __name__ == "__main__":
             target_size=target_size,
             patch_size=patch_size,
         )
-        .cuda()
-        .half()
+        .to(DEVICE)
+        .to(DTYPE)
     )
     img_t_lg = (
         pre_resize(
@@ -43,8 +49,8 @@ if __name__ == "__main__":
             target_size=lg_target_size,
             patch_size=lg_patch_size,
         )
-        .cuda()
-        .half()
+        .to(DEVICE)
+        .to(DTYPE)
     )
 
     print("\nStart Outline Expansion test:")
@@ -231,8 +237,7 @@ if __name__ == "__main__":
     pixel_art.save("./img/snow-leopard-pixel-lg-256c-ed.webp", lossless=True, quality=0)
     print("    Error Diffusion test done")
 
-    pixeloe_env.TORCH_COMPILE = True
-    N = 200
+    pixeloe_env.TORCH_COMPILE = COMPILE
     print("\nStart speed test:")
     print(f"  {target_size=}")
     print(f"  {patch_size=}")
