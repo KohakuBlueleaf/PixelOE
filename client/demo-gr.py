@@ -83,7 +83,7 @@ def pixelize_image(
 ) -> Image:
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
-        .cuda()
+        .to(device)
         .half()
     )
     result_t = pixelize(
@@ -164,7 +164,7 @@ def outline_expansion_image(
 ) -> Image:
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
-        .cuda()
+        .to(device)
         .half()
     )
     dilate_t = dilate_cont(img_t, KERNELS[thickness].to(img_t))
@@ -258,7 +258,7 @@ def introduction_ui():
 
 def ui():
     with gr.Blocks(
-        title="NAI Client by Kohaku",
+        title="PixelOE",
         theme=gr.themes.Soft(),
         css=open(os.path.join(base_dir, "client.css"), "r", encoding="utf-8").read(),
     ) as website:
@@ -286,7 +286,7 @@ if __name__ == "__main__":
         time.sleep(0.01)
     if app_mode:
         webview.create_window(
-            "NAI Client",
+            "PixelOE",
             website.local_url + "?__theme=dark",
             resizable=True,
             zoomable=True,
