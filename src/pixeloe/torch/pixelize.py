@@ -8,8 +8,6 @@ from .downscale.contrast_based import contrast_downscale
 from .downscale.k_centroid import k_centroid_downscale_torch
 from .downscale.lanczos import lanczos_resize
 
-from .utils import to_numpy, Image
-
 
 def pixelize(
     img_t,
