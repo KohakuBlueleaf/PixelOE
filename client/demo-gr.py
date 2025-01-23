@@ -38,6 +38,7 @@ if torch._C._mps_is_available():
 if torch.xpu.is_available():
     avaliabe_devices["xpu"] = torch.xpu.empty_cache
 device = torch.device(list(avaliabe_devices)[-1])
+dtype = torch.float16
 clean = list(avaliabe_devices.values())[-1]
 logger.info(f"Using device: {device}")
 
@@ -84,7 +85,7 @@ def pixelize_image(
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
         .to(device)
-        .half()
+        .to(dtype)
     )
     result_t = pixelize(
         img_t,
@@ -165,7 +166,7 @@ def outline_expansion_image(
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
         .to(device)
-        .half()
+        .to(dtype)
     )
     dilate_t = dilate_cont(img_t, KERNELS[thickness].to(img_t))
     dilate = Image.fromarray(to_numpy(dilate_t)[0])
@@ -235,6 +236,16 @@ def change_device(device_name):
     logger.info(f"Using device: {device}")
 
 
+def change_dtype(dtype_name):
+    global dtype
+    dtype = {
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "float32": torch.float32,
+    }[dtype_name]
+    logger.info(f"Using data type: {dtype}")
+
+
 def settings_ui():
     with gr.Row():
         with gr.Column():
@@ -243,7 +254,16 @@ def settings_ui():
                 choices=avaliabe_devices,
                 value=list(avaliabe_devices)[-1],
             )
+        with gr.Column():
+            dtype = gr.Dropdown(
+                label="Data Type",
+                choices=["float16", "bfloat16", "float32"],
+                value="float16",
+            )
+        with gr.Column():
+            pass
     device.change(change_device, inputs=[device])
+    dtype.change(change_dtype, inputs=[dtype])
 
 
 def introduction_ui():
