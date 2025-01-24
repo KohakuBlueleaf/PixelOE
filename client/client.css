@@ -57,3 +57,12 @@
 footer {
     display: none !important;
 }
+
+.markdown_page{
+    margin: 0 7.5rem 0 7.5rem;
+    font-size: 18px;
+    --text-md: 18px;
+    --text-lg: 22px;
+    --text-xl: 26px;
+    --text-xxl: 32px;
+}

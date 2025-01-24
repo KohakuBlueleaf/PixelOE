@@ -19,6 +19,10 @@ pixeloe_env.TORCH_COMPILE = False
 
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
+
+with open(os.path.join(base_dir, "intro.md"), "r", encoding="utf-8") as f:
+    intro = f.read()
+
 client_config: dict = toml.load(os.path.join(base_dir, "config.toml"))["client"]
 app_mode = client_config.get("use_standalone_window", False)
 downsample_mode = [
@@ -269,10 +273,8 @@ def settings_ui():
 def introduction_ui():
     with gr.Row():
         gr.Markdown(
-            """
-# PixelOE: Detail-Oriented ***Pixel***ization based on Contrast-Aware ***O***utline ***E***xpansion.
-**Create stunning pixel art from high-resolution images without AI or complex networks.**
-"""
+            intro,
+            elem_classes="markdown_page"
         )
 
 
