@@ -19,6 +19,7 @@ def pixelize(
     num_colors=32,
     quant_mode="kmeans",
     dither_mode="ordered",
+    return_intermediate=False,
 ):
     """
     Main pipeline: pixelize an image using PyTorch.
@@ -87,5 +88,8 @@ def pixelize(
         down_final = down
 
     out_pixel = F.interpolate(down_final, scale_factor=pixel_size, mode="nearest-exact")
+
+    if return_intermediate:
+        return out_pixel, expanded, weights
 
     return out_pixel
