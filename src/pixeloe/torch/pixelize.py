@@ -45,15 +45,17 @@ def pixelize(
         out_w += 1
     target_size = (out_h * out_w) ** 0.5
 
-    weights = None
+    oe_weights = None
     if thickness > 0:
-        expanded, weights = outline_expansion(img_t, thickness, thickness, pixel_size)
+        expanded, oe_weights = outline_expansion(img_t, thickness, thickness, pixel_size)
     else:
         expanded = img_t
 
     if weighted_quant:
-        if weights is None:
+        if oe_weights is None:
             weights = expansion_weight(img_t, pixel_size, pixel_size // 2)
+        else:
+            weights = oe_weights
         weights = torch.abs(weights * 2 - 1) * weights
         weights = F.interpolate(weights, size=(out_h, out_w), mode="bilinear")
         w_gamma = target_size / 512
@@ -90,6 +92,6 @@ def pixelize(
     out_pixel = F.interpolate(down_final, scale_factor=pixel_size, mode="nearest-exact")
 
     if return_intermediate:
-        return out_pixel, expanded, weights
+        return out_pixel, expanded, oe_weights
 
     return out_pixel
