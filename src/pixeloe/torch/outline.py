@@ -68,7 +68,7 @@ def outline_expansion(
 
     out = e * w + d * (1.0 - w)
 
-    oc_iter = max(erode_iters - 2, dilate_iters - 2, 1)
+    oc_iter = max(erode_iters - 1, dilate_iters - 1, 1)
 
     out = erode_cont(out, KERNELS[oc_iter].to(img), 1)
     out = dilate_cont(out, KERNELS[oc_iter].to(img), 2)
