@@ -272,10 +272,7 @@ def settings_ui():
 
 def introduction_ui():
     with gr.Row():
-        gr.Markdown(
-            intro,
-            elem_classes="markdown_page"
-        )
+        gr.Markdown(intro, elem_classes="markdown_page")
 
 
 def ui():

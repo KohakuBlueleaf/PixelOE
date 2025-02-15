@@ -25,7 +25,9 @@ def run(command) -> str:
     result = subprocess.run(**run_kwargs)
 
     if result.returncode != 0:
-        logger.error(f"Command failed with exit code {result.returncode}:\n{command}\n{result.stderr}")
+        logger.error(
+            f"Command failed with exit code {result.returncode}:\n{command}\n{result.stderr}"
+        )
         raise RuntimeError(f"Command failed")
 
     return result.stdout or ""

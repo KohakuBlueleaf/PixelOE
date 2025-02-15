@@ -4,6 +4,7 @@ if "pixeloe" in sys.modules:
     sys.modules["pixeloe_nodes"] = sys.modules.pop("pixeloe")
 
 from .installer import install_pixeloe
+
 install_pixeloe()
 
 import torch
@@ -34,16 +35,16 @@ def image_preprocess(img: torch.Tensor, device: str):
 class PixelOE:
     INPUT_TYPES = lambda: {
         "required": {
-            "pixel_size": ("INT", {"default": 4, "min":1, "max": 32}),
-            "thickness": ("INT", {"default": 2, "min":0, "max": 6}),
-            "img": ("IMAGE", ),
-            "mode": (["contrast", "k_centroid", "lanczos", "nearest", "bilinear"], ),
+            "pixel_size": ("INT", {"default": 4, "min": 1, "max": 32}),
+            "thickness": ("INT", {"default": 2, "min": 0, "max": 6}),
+            "img": ("IMAGE",),
+            "mode": (["contrast", "k_centroid", "lanczos", "nearest", "bilinear"],),
             "color_quant": ("BOOLEAN", {"default": False}),
             "weighted_quant": ("BOOLEAN", {"default": False}),
             "num_colors": ("INT", {"default": 256, "min": 2, "max": 256}),
             "quant_mode": (["kmeans", "weighted-kmeans"],),
             "dither_mode": (["ordered", "error_diffusion", "none"],),
-            "device": (["default", "cpu", "cuda", "mps"],)
+            "device": (["default", "cpu", "cuda", "mps"],),
         },
     }
     RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE")
@@ -70,8 +71,8 @@ class PixelOE:
     ):
         img, use_channel_last, org_device = image_preprocess(img, device)
         result, oe_image, oe_weight = pixelize(
-            img, 
-            pixel_size, 
+            img,
+            pixel_size,
             thickness,
             mode,
             do_color_match=color_quant,
@@ -96,10 +97,10 @@ class PixelOE:
 class OutlineExpansion:
     INPUT_TYPES = lambda: {
         "required": {
-            "img": ("IMAGE", ),
-            "pixel_size": ("INT", {"default": 4, "min":1, "max": 32}),
-            "thickness": ("INT", {"default": 3, "min":1, "max": 6}),
-            "device": (["default", "cpu", "cuda", "mps"],)
+            "img": ("IMAGE",),
+            "pixel_size": ("INT", {"default": 4, "min": 1, "max": 32}),
+            "thickness": ("INT", {"default": 3, "min": 1, "max": 6}),
+            "device": (["default", "cpu", "cuda", "mps"],),
         },
     }
     RETURN_TYPES = ("IMAGE", "IMAGE")
@@ -118,9 +119,7 @@ class OutlineExpansion:
         device: str,
     ):
         img, use_channel_last, org_device = image_preprocess(img, device)
-        oe_image, oe_weight = outline_expansion(
-            img, thickness, thickness, pixel_size
-        )
+        oe_image, oe_weight = outline_expansion(img, thickness, thickness, pixel_size)
         oe_image = oe_image.to(org_device)
         oe_weight = oe_weight.to(org_device).repeat(1, 3, 1, 1)
         if use_channel_last:
@@ -132,16 +131,14 @@ class OutlineExpansion:
 class PreResize:
     INPUT_TYPES = lambda: {
         "required": {
-            "img": ("IMAGE", ),
-            "target_pixels": ("INT", {"default": 256, "min":1, "max": 1024}),
-            "pixel_size": ("INT", {"default": 4, "min":1, "max": 32}),
-            "device": (["default", "cpu", "cuda", "mps"],)
+            "img": ("IMAGE",),
+            "target_pixels": ("INT", {"default": 256, "min": 1, "max": 1024}),
+            "pixel_size": ("INT", {"default": 4, "min": 1, "max": 32}),
+            "device": (["default", "cpu", "cuda", "mps"],),
         },
     }
     RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = (
-        "img",
-    )
+    RETURN_NAMES = ("img",)
     FUNCTION = FUNCTION
     CATEGORY = CATEGORY
 

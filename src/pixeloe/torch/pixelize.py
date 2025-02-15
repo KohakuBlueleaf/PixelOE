@@ -47,7 +47,9 @@ def pixelize(
 
     oe_weights = None
     if thickness > 0:
-        expanded, oe_weights = outline_expansion(img_t, thickness, thickness, pixel_size)
+        expanded, oe_weights = outline_expansion(
+            img_t, thickness, thickness, pixel_size
+        )
     else:
         expanded = img_t
 
