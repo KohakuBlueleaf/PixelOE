@@ -19,6 +19,7 @@ def pixelize(
     num_colors=32,
     quant_mode="kmeans",
     dither_mode="ordered",
+    no_post_upscale=False,
     return_intermediate=False,
 ):
     """
@@ -91,7 +92,10 @@ def pixelize(
     else:
         down_final = down
 
-    out_pixel = F.interpolate(down_final, scale_factor=pixel_size, mode="nearest-exact")
+    if no_post_upscale:
+        out_pixel = down_final
+    else:
+        out_pixel = F.interpolate(down_final, scale_factor=pixel_size, mode="nearest-exact")
 
     if return_intermediate:
         return out_pixel, expanded, oe_weights
