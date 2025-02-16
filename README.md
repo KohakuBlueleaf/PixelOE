@@ -19,6 +19,124 @@ PixelOE is a Python library that generates high-quality pixel art from standard 
 * **Fast Pure Pytorch implementation** Achieving over 180img/sec (bs1) on RTX4090 with 1920x1080 input and 480x270 output
 * **GPU Free**: All the core logic can be used without GPU.
 
+## Usage
+
+### ComfyUI
+
+![1739714420116](image/README/1739714420116.png)
+
+We provide ComfyUI Custom Node implementation in this repository directly, you just need to clone this repo into the custom_node directory and it will work!
+
+```
+cd custom_nodes
+git clone https://github.com/KohakuBlueleaf/PixelOE
+```
+
+There are 3 nodes are provided in this extensions:
+
+* PixelOE: The pixelization Nodes
+* OutlineExpansion: Only utilize the OutlineExpansion algorithm
+* PreResize: Resize based on target pixel image resolution and each pixel's size.
+
+### Installation
+
+To utilize this package in your code or utilize its CLI implementation, you need to install it with pip first:
+
+```bash
+pip install pixeloe
+```
+
+### Command Line Interface (CLI)
+
+**Note**: CLI in PixelOE is currently using legacy API which will be deprecated in near future.
+
+The `pixeloe` package provides two primary commands:
+
+* `pixeloe.pixelize`: Full pixelization process
+* `pixeloe.outline`: Outline expansion
+
+To view command usage, use the `--help` flag:
+
+```bash
+pixeloe.pixelize --help
+```
+
+```
+usage: pixeloe.pixelize [-h] [--output_img OUTPUT_IMG] [--mode {center,contrast,k-centroid,bicubic,nearest}] [--target_size TARGET_SIZE]
+                        [--patch_size PATCH_SIZE] [--thickness THICKNESS] [--no_color_matching] [--contrast CONTRAST]
+                        [--saturation SATURATION] [--colors COLORS] [--no_upscale] [--no_downscale]
+                        input_img
+
+positional arguments:
+  input_img
+
+options:
+  -h, --help            show this help message and exit
+  --output_img OUTPUT_IMG, -O OUTPUT_IMG
+  --mode {center,contrast,k-centroid,bicubic,nearest}, -M {center,contrast,k-centroid,bicubic,nearest}
+  --target_size TARGET_SIZE, -S TARGET_SIZE
+  --patch_size PATCH_SIZE, -P PATCH_SIZE
+  --thickness THICKNESS, -T THICKNESS
+  --no_color_matching
+  --contrast CONTRAST
+  --saturation SATURATION
+  --colors COLORS
+  --no_upscale
+  --no_downscale
+```
+
+**Example:**
+
+```bash
+pixeloe.pixelize img/test.webp --output_img img/test2.webp --target_size 256 --patch_size 8
+```
+
+### Gradio
+
+![1737572469521](image/README/1737572469521.png)
+install gradio first:
+
+```bash
+pip install gradio
+```
+
+Than run the gradio client server:
+
+```bash
+python ./client/demo-gr.py
+```
+
+### Python API
+
+You can integrate PixelOE directly into your Python/Pytorch projects:
+
+legacy API (numpy/cv2 based, slow)
+
+```python
+import cv2
+from pixeloe.pixelize import pixelize
+
+img = cv2.imread("img/test.webp")
+img = pixelize(img, target_size=256, patch_size=8)
+cv2.imwrite("img/test2.webp", img)
+```
+
+torch API (Fast, GPU supported)
+
+```python
+import torch
+from PIL import Image
+
+from pixeloe.torch.pixelize import pixelize
+from pixeloe.torch.utils import to_numpy, pre_resize
+
+img = Image.open("img/snow-leopard.webp")
+img = pre_resize(img, target_size=256, patch_size=4).cuda().half()
+result = pixelize(img, pixel_size=4, thickness=3)
+result_img = Image.fromarray(to_numpy(result)[0])
+result_img.save("img/snow-leopard-pixel.webp")
+```
+
 ## Example
 
 ### Outline Expansion
@@ -108,105 +226,6 @@ By adaptively selecting the most representative pixel for each local area, the d
 
 * **Color Palette Optimization:** You can reduce the number of colors using k-means clustering or maxcover method for a more classic pixel art look.
 * **Color Matching:** Optionally transfer the color palette from the original image.
-
-## Usage
-
-### Installation
-
-```bash
-pip install pixeloe
-```
-
-### Command Line Interface (CLI)
-
-**Note**: CLI in PixelOE is currently using legacy API which will be deprecated in near future.
-
-The `pixeloe` package provides two primary commands:
-
-* `pixeloe.pixelize`: Full pixelization process
-* `pixeloe.outline`: Outline expansion
-
-To view command usage, use the `--help` flag:
-
-```bash
-pixeloe.pixelize --help
-```
-
-```
-usage: pixeloe.pixelize [-h] [--output_img OUTPUT_IMG] [--mode {center,contrast,k-centroid,bicubic,nearest}] [--target_size TARGET_SIZE]
-                        [--patch_size PATCH_SIZE] [--thickness THICKNESS] [--no_color_matching] [--contrast CONTRAST]
-                        [--saturation SATURATION] [--colors COLORS] [--no_upscale] [--no_downscale]
-                        input_img
-
-positional arguments:
-  input_img
-
-options:
-  -h, --help            show this help message and exit
-  --output_img OUTPUT_IMG, -O OUTPUT_IMG
-  --mode {center,contrast,k-centroid,bicubic,nearest}, -M {center,contrast,k-centroid,bicubic,nearest}
-  --target_size TARGET_SIZE, -S TARGET_SIZE
-  --patch_size PATCH_SIZE, -P PATCH_SIZE
-  --thickness THICKNESS, -T THICKNESS
-  --no_color_matching
-  --contrast CONTRAST
-  --saturation SATURATION
-  --colors COLORS
-  --no_upscale
-  --no_downscale
-```
-
-**Example:**
-
-```bash
-pixeloe.pixelize img/test.webp --output_img img/test2.webp --target_size 256 --patch_size 8
-```
-
-### Gradio
-![1737572469521](image/README/1737572469521.png)
-install gradio first:
-
-```bash
-pip install gradio
-```
-
-Than run the gradio client server:
-
-```bash
-python ./client/demo-gr.py
-```
-
-
-### Python API
-
-You can integrate PixelOE directly into your Python/Pytorch projects:
-
-legacy API (numpy/cv2 based, slow)
-
-```python
-import cv2
-from pixeloe.pixelize import pixelize
-
-img = cv2.imread("img/test.webp")
-img = pixelize(img, target_size=256, patch_size=8)
-cv2.imwrite("img/test2.webp", img)
-```
-
-torch API (Fast, GPU supported)
-
-```python
-import torch
-from PIL import Image
-
-from pixeloe.torch.pixelize import pixelize
-from pixeloe.torch.utils import to_numpy, pre_resize
-
-img = Image.open("img/snow-leopard.webp")
-img = pre_resize(img, target_size=256, patch_size=4).cuda().half()
-result = pixelize(img, pixel_size=4, thickness=3)
-result_img = Image.fromarray(to_numpy(result)[0])
-result_img.save("img/snow-leopard-pixel.webp")
-```
 
 ## Acknowledgement
 
