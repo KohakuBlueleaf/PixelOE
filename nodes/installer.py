@@ -9,7 +9,7 @@ import pkg_resources
 import subprocess
 
 
-PIXELOE_VERSION = "0.1.3"
+PIXELOE_VERSION = "0.1.4"
 python = sys.executable
 
 
