@@ -82,10 +82,14 @@ class PixelOE:
             dither_mode=dither_mode,
             return_intermediate=True,
         )
-        result = result.to(org_device)
-        oe_image = oe_image.to(org_device)
         if oe_weight is not None:
             oe_weight = oe_weight.to(org_device).repeat(1, 3, 1, 1)
+        else:
+            oe_weight = torch.zeros_like(result)
+        if oe_image is None:
+            oe_image = torch.zeros_like(result)
+        result = result.to(org_device)
+        oe_image = oe_image.to(org_device)
         if use_channel_last:
             result = result.permute(0, 2, 3, 1)
             oe_image = oe_image.permute(0, 2, 3, 1)
