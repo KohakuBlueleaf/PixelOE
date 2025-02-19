@@ -250,10 +250,10 @@ By adaptively selecting the most representative pixel for each local area, the d
 
 ## Star History
 
-<a href="https://star-history.com/#KohakuBlueleaf/PixelOE&Timeline">
+<a href="https://star-history.com/#KohakuBlueleaf/PixelOE&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Timeline" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=KohakuBlueleaf/PixelOE&type=Date" />
  </picture>
 </a>
