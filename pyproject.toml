@@ -24,8 +24,8 @@ dependencies = [
 Homepage = "https://github.com/KohakuBlueleaf/PixelOE"
 
 [project.scripts]
-"pixeloe.pixelize" = "pixeloe.cli:pixelize"
-"pixeloe.outline" = "pixeloe.cli:outline"
+"pixeloe.pixelize" = "pixeloe.cli_legacy:pixelize"
+"pixeloe.outline" = "pixeloe.cli_legacy:outline"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
