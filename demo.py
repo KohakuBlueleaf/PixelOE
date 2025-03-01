@@ -13,7 +13,7 @@ for file, size, p, t in [
     for thickness in [0, t]:
         for mode in ["nearest", "bicubic", "center", "k-centroid", "contrast"]:
             all_command.append(
-                "python -m pixeloe.cli "
+                "python -m pixeloe.cli_legacy "
                 f"{file} --thickness {thickness} "
                 f"--target_size {size} --patch_size {p} "
                 f"-M {mode} -O {output_file}-t{thickness}-{mode}.webp"
