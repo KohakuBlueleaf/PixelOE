@@ -9,6 +9,7 @@ from pixeloe.torch.pixelize import pixelize
 from pixeloe.torch.outline import outline_expansion
 from pixeloe.torch.utils import to_numpy, pre_resize
 from pixeloe.torch.minmax import dilate_cont, erode_cont, KERNELS
+from pixeloe.torch.sharpen.laplacian import laplacian_sharpen
 
 
 DEVICE = "cuda"
@@ -25,6 +26,9 @@ if __name__ == "__main__":
     oe_t, w = outline_expansion(img_t, 6, 6, 8, 10, 3)
     oe = Image.fromarray(to_numpy(oe_t)[0])
     oe.save("./img/snow-leopard-oe-orig.webp", lossless=True, quality=0)
+    oe_sharp_t = laplacian_sharpen(oe_t, amount=0.5)
+    oe_sharp = Image.fromarray(to_numpy(oe_sharp_t)[0])
+    oe_sharp.save("./img/snow-leopard-oe-orig-sharp.webp", lossless=True, quality=0)
     pixeloe_env.TORCH_COMPILE = False
 
     patch_size = 5
@@ -67,6 +71,11 @@ if __name__ == "__main__":
     )
     oe = Image.fromarray(to_numpy(oe_t)[0])
     oe.save("./img/snow-leopard-oe.webp", lossless=True, quality=0)
+
+    oe_sharpt = laplacian_sharpen(oe_t, amount=0.5)
+    oe_sharp = Image.fromarray(to_numpy(oe_sharpt)[0])
+    oe_sharp.save("./img/snow-leopard-oe-sharp.webp", lossless=True, quality=0)
+
     w = Image.fromarray(w[0, 0].float().cpu().numpy().clip(0, 1) * 255).convert("L")
     w.save("./img/snow-leopard-w.webp", lossless=True, quality=0)
     print("Outline Expansion test done")
@@ -87,6 +96,16 @@ if __name__ == "__main__":
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel.webp", lossless=True, quality=0)
     print("    Pixlize test done")
+    pixel_art_t = pixelize(
+        img_t.repeat(2, 1, 1, 1),  # for testing batch process
+        pixel_size=patch_size,
+        thickness=thickness,
+        do_color_match=False,
+        sharpen_mode="laplacian",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
+    pixel_art.save("./img/snow-leopard-pixel-sharp.webp", lossless=True, quality=0)
+    print("    Sharpen test done")
 
     pixel_art_t = pixelize(
         img_t.repeat(2, 1, 1, 1),
@@ -176,6 +195,17 @@ if __name__ == "__main__":
         pixel_size=lg_patch_size,
         thickness=3,
         do_color_match=True,
+        sharpen_mode="laplacian",
+    )
+    pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
+    pixel_art.save("./img/snow-leopard-pixel-lg-sharp.webp", lossless=True, quality=0)
+    print("    Sharpen test done")
+
+    pixel_art_t = pixelize(
+        img_t_lg.repeat(2, 1, 1, 1),
+        pixel_size=lg_patch_size,
+        thickness=3,
+        do_color_match=True,
         mode="k_centroid",
     )
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
@@ -236,6 +266,8 @@ if __name__ == "__main__":
     pixel_art = Image.fromarray(to_numpy(pixel_art_t)[0])
     pixel_art.save("./img/snow-leopard-pixel-lg-256c-ed.webp", lossless=True, quality=0)
     print("    Error Diffusion test done")
+
+    exit()
 
     pixeloe_env.TORCH_COMPILE = COMPILE
     print("\nStart speed test:")

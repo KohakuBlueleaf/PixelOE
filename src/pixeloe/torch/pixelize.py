@@ -4,6 +4,9 @@ import torch.nn.functional as F
 from .outline import outline_expansion, expansion_weight
 from .color import match_color, quantize_and_dither
 
+from .sharpen.unsharp import unsharp_mask
+from .sharpen.laplacian import laplacian_sharpen
+
 from .downscale.contrast_based import contrast_downscale
 from .downscale.k_centroid import k_centroid_downscale_torch
 from .downscale.lanczos import lanczos_resize
@@ -14,6 +17,7 @@ def pixelize(
     pixel_size=6,
     thickness=3,
     mode="contrast",
+    sharpen_mode=None,
     do_color_match=True,
     do_quant=False,
     num_colors=32,
@@ -53,6 +57,12 @@ def pixelize(
         )
     else:
         expanded = img_t
+
+    match sharpen_mode:
+        case "unsharp":
+            expanded = unsharp_mask(expanded, kernel_size=3, sigma=1.0, amount=0.5)
+        case "laplacian":
+            expanded = laplacian_sharpen(expanded, amount=0.5)
 
     if weighted_quant:
         if oe_weights is None:
@@ -95,7 +105,9 @@ def pixelize(
     if no_post_upscale:
         out_pixel = down_final
     else:
-        out_pixel = F.interpolate(down_final, scale_factor=pixel_size, mode="nearest-exact")
+        out_pixel = F.interpolate(
+            down_final, scale_factor=pixel_size, mode="nearest-exact"
+        )
 
     if return_intermediate:
         return out_pixel, expanded, oe_weights
