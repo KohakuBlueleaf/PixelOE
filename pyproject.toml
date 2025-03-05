@@ -32,3 +32,10 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "kblueleaf"
+DisplayName = "PixelOE"
+Icon = "img/comfy-icon.jpg"
