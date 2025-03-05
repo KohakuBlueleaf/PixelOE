@@ -22,6 +22,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/KohakuBlueleaf/PixelOE"
+Repository = "https://github.com/KohakuBlueleaf/PixelOE"
 
 [project.scripts]
 "pixeloe.pixelize" = "pixeloe.cli_legacy:pixelize"
