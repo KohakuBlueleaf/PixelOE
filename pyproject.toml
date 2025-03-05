@@ -38,4 +38,4 @@ where = ["src"]
 [tool.comfy]
 PublisherId = "kblueleaf"
 DisplayName = "PixelOE"
-Icon = "img/comfy-icon.jpg"
+Icon = "https://kblueleaf.net/_astro/pixeloe-icon.L5crpG2M.jpg"
