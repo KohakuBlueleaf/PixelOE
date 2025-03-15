@@ -11,6 +11,7 @@ import torch
 from pixeloe.torch.pixelize import pixelize
 from pixeloe.torch.outline import outline_expansion
 from pixeloe.torch.utils import pre_resize
+from torchvision.transforms.functional import to_pil_image
 
 
 # Constants
@@ -154,11 +155,12 @@ class PreResize:
         device: str,
     ):
         img, use_channel_last, org_device = image_preprocess(img, device)
+        img = to_pil_image(img[0])
         img = pre_resize(img, target_size=target_pixels, patch_size=pixel_size)
         img = img.to(org_device)
         if use_channel_last:
             img = img.permute(0, 2, 3, 1)
-        return img
+        return (img,)
 
 
 NODE_CLASS_MAPPINGS = {
