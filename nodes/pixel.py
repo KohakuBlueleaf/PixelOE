@@ -81,6 +81,7 @@ class PixelOE:
             num_colors=num_colors,
             quant_mode=quant_mode,
             dither_mode=dither_mode,
+            no_post_upscale=no_post_upscale,
             return_intermediate=True,
         )
         if oe_weight is not None:
