@@ -40,18 +40,18 @@ def pixelize():
     img = np.array(img)
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img = pixelize(
-        img,
-        args.mode,
-        args.target_size,
-        args.patch_size,
-        None,
-        args.thickness,
-        not args.no_color_matching,
-        args.contrast,
-        args.saturation,
-        args.colors,
-        args.no_upscale,
-        args.no_downscale,
+        img=img,
+        mode=args.mode,
+        target_size=args.target_size,
+        patch_size=args.patch_size,
+        pixel_size=None,
+        thickness=args.thickness,
+        color_matching=not args.no_color_matching,
+        contrast=args.contrast,
+        saturation=args.saturation,
+        colors=args.colors,
+        no_upscale=args.no_upscale,
+        no_downscale=args.no_downscale,
     )
     t1 = perf_counter_ns()
     print(f"{(t1 - t0)/1e6}ms")
