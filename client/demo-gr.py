@@ -57,6 +57,19 @@ def runner_wrapper(func):
     return runner
 
 
+def adapt_on_upload(img, bind):
+    if not bind or img is None:
+        return 256, 256
+    W, H = img.size
+    if W > H:
+        target_w = 256
+        target_h = int(round(256 * H / W))
+    else:
+        target_h = 256
+        target_w = int(round(256 * W / H))
+    return target_h, target_w
+
+
 def h_bind(target_h, target_w, img, bind):
     if not bind:
         return target_h, target_w
@@ -140,6 +153,11 @@ def pixelization_ui():
                         choices=["None", "ordered", "error_diffusion"],
                         value="ordered",
                     )
+    inp.upload(
+        adapt_on_upload,
+        inputs=[inp, bind],
+        outputs=[target_h, target_w],
+    )
     target_w.input(
         w_bind,
         inputs=[target_h, target_w, inp, bind],
@@ -213,6 +231,11 @@ def outline_expansion_ui():
             erode_img = gr.Image(label="Eroded Image")
         with gr.Column():
             weight_img = gr.Image(label="Weight Map")
+    inp.upload(
+        adapt_on_upload,
+        inputs=[inp, bind],
+        outputs=[target_h, target_w],
+    )
     target_w.input(
         w_bind,
         inputs=[target_h, target_w, inp, bind],
