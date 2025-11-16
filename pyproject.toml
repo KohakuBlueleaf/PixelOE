@@ -17,7 +17,24 @@ dependencies = [
     "numpy",
     "pillow",
     "torch",
+    "torchvision",
     "kornia",
+]
+
+[project.optional-dependencies]
+gradio = [
+    "gradio>=4.0.0",
+    "toml",
+]
+standalone = [
+    "gradio>=4.0.0",
+    "toml",
+    "pywebview",
+]
+all = [
+    "gradio>=4.0.0",
+    "toml",
+    "pywebview",
 ]
 
 [project.urls]
