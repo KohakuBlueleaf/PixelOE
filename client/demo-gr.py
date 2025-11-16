@@ -102,6 +102,7 @@ def pixelize_image(
     colors: int,
     dither: str,
     quant_after: bool,
+    no_upscale: bool,
 ) -> Image:
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
@@ -123,7 +124,8 @@ def pixelize_image(
             num_centroids=colors,
             dither_method=dither,
         )
-        result_t = F.interpolate(result_t, scale_factor=patch_size, mode="nearest-exact")
+        if not no_upscale:
+            result_t = F.interpolate(result_t, scale_factor=patch_size, mode="nearest-exact")
     else:
         result_t = pixelize(
             img_t,
@@ -133,10 +135,48 @@ def pixelize_image(
             do_quant=colors > 0,
             num_colors=colors,
             dither_mode=dither,
+            no_post_upscale=no_upscale,
         )
 
     result = Image.fromarray(to_numpy(result_t)[0])
     return result
+
+
+def generate_filename(
+    img,
+    target_h,
+    target_w,
+    patch_size,
+    thickness,
+    downsample_mode,
+    colors,
+    dither,
+    quant_after,
+    no_upscale,
+    force_png,
+):
+    if img is None:
+        return "pixeloe_result.png"
+
+    base_name = "pixeloe"
+    params = []
+    params.append(f"{target_w}x{target_h}")
+    params.append(f"p{patch_size}")
+    if thickness > 0:
+        params.append(f"t{thickness}")
+    params.append(downsample_mode)
+    if colors > 0:
+        params.append(f"{colors}c")
+        if dither != "None":
+            params.append(dither)
+        if quant_after:
+            params.append("qa")
+    if no_upscale:
+        params.append("noup")
+
+    ext = ".png" if force_png else ".png"
+    filename = f"{base_name}_{'_'.join(params)}{ext}"
+    return filename
 
 
 def pixelization_ui():
@@ -146,6 +186,7 @@ def pixelization_ui():
             submit = gr.Button("Submit")
         with gr.Column():
             result = gr.Image(label="Result Image")
+            download_btn = gr.DownloadButton(label="Download Result", visible=False)
             with gr.Accordion("Settings", open=False), gr.Row():
                 with gr.Column(min_width=50, scale=2):
                     with gr.Row():
@@ -179,6 +220,14 @@ def pixelization_ui():
                         label="Quantize After Pixelization",
                         value=False,
                     )
+                    no_upscale = gr.Checkbox(
+                        label="No Upscale (Return Small Image)",
+                        value=False,
+                    )
+                    force_png = gr.Checkbox(
+                        label="Force PNG Output",
+                        value=True,
+                    )
     inp.upload(
         adapt_on_upload,
         inputs=[inp, bind],
@@ -196,10 +245,25 @@ def pixelization_ui():
         outputs=target_w,
         trigger_mode="always_last",
     )
+    def process_and_save(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png):
+        result_img = pixelize_image(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale)
+        if result_img is None:
+            return None, gr.update(visible=False), None
+
+        filename = generate_filename(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png)
+        temp_path = f"/tmp/{filename}"
+
+        if force_png:
+            result_img.save(temp_path, format="PNG")
+        else:
+            result_img.save(temp_path)
+
+        return result_img, gr.update(visible=True, value=temp_path), temp_path
+
     submit.click(
-        pixelize_image,
-        inputs=[inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after],
-        outputs=result,
+        process_and_save,
+        inputs=[inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png],
+        outputs=[result, download_btn, gr.State()],
     )
 
 
