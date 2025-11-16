@@ -8,10 +8,13 @@ import gradio as gr
 import webview
 from PIL import Image
 
+import torch.nn.functional as F
+
 import pixeloe.torch.env as pixeloe_env
 from pixeloe.torch.minmax import dilate_cont, erode_cont, KERNELS
 from pixeloe.torch.outline import outline_expansion
 from pixeloe.torch.pixelize import pixelize
+from pixeloe.torch.color import match_color, quantize_and_dither
 from pixeloe.torch.utils import pre_resize, to_numpy
 from pixeloe.logger import logger
 
@@ -98,21 +101,40 @@ def pixelize_image(
     downsample_mode: str,
     colors: int,
     dither: str,
+    quant_after: bool,
 ) -> Image:
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
         .to(device)
         .to(dtype)
     )
-    result_t = pixelize(
-        img_t,
-        pixel_size=patch_size,
-        thickness=thickness,
-        mode=downsample_mode,
-        do_quant=colors > 0,
-        num_colors=colors,
-        dither_mode=dither,
-    )
+
+    if quant_after and colors > 0:
+        result_t = pixelize(
+            img_t,
+            pixel_size=patch_size,
+            thickness=thickness,
+            mode=downsample_mode,
+            do_quant=False,
+            no_post_upscale=True,
+        )
+        result_t = quantize_and_dither(
+            result_t,
+            num_centroids=colors,
+            dither_method=dither,
+        )
+        result_t = F.interpolate(result_t, scale_factor=patch_size, mode="nearest-exact")
+    else:
+        result_t = pixelize(
+            img_t,
+            pixel_size=patch_size,
+            thickness=thickness,
+            mode=downsample_mode,
+            do_quant=colors > 0,
+            num_colors=colors,
+            dither_mode=dither,
+        )
+
     result = Image.fromarray(to_numpy(result_t)[0])
     return result
 
@@ -153,6 +175,10 @@ def pixelization_ui():
                         choices=["None", "ordered", "error_diffusion"],
                         value="ordered",
                     )
+                    quant_after = gr.Checkbox(
+                        label="Quantize After Pixelization",
+                        value=False,
+                    )
     inp.upload(
         adapt_on_upload,
         inputs=[inp, bind],
@@ -172,7 +198,7 @@ def pixelization_ui():
     )
     submit.click(
         pixelize_image,
-        inputs=[inp, target_h, target_w, patch_size, thickness, down, colors, dither],
+        inputs=[inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after],
         outputs=result,
     )
 
