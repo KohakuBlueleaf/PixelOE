@@ -8,10 +8,13 @@ import gradio as gr
 import webview
 from PIL import Image
 
+import torch.nn.functional as F
+
 import pixeloe.torch.env as pixeloe_env
 from pixeloe.torch.minmax import dilate_cont, erode_cont, KERNELS
 from pixeloe.torch.outline import outline_expansion
 from pixeloe.torch.pixelize import pixelize
+from pixeloe.torch.color import match_color, quantize_and_dither
 from pixeloe.torch.utils import pre_resize, to_numpy
 from pixeloe.logger import logger
 
@@ -57,6 +60,19 @@ def runner_wrapper(func):
     return runner
 
 
+def adapt_on_upload(img, bind):
+    if not bind or img is None:
+        return 256, 256
+    W, H = img.size
+    if W > H:
+        target_w = 256
+        target_h = int(round(256 * H / W))
+    else:
+        target_h = 256
+        target_w = int(round(256 * W / H))
+    return target_h, target_w
+
+
 def h_bind(target_h, target_w, img, bind):
     if not bind:
         return target_h, target_w
@@ -85,23 +101,82 @@ def pixelize_image(
     downsample_mode: str,
     colors: int,
     dither: str,
+    quant_after: bool,
+    no_upscale: bool,
 ) -> Image:
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
         .to(device)
         .to(dtype)
     )
-    result_t = pixelize(
-        img_t,
-        pixel_size=patch_size,
-        thickness=thickness,
-        mode=downsample_mode,
-        do_quant=colors > 0,
-        num_colors=colors,
-        dither_mode=dither,
-    )
+
+    if quant_after and colors > 0:
+        result_t = pixelize(
+            img_t,
+            pixel_size=patch_size,
+            thickness=thickness,
+            mode=downsample_mode,
+            do_quant=False,
+            no_post_upscale=True,
+        )
+        result_t = quantize_and_dither(
+            result_t,
+            num_centroids=colors,
+            dither_method=dither,
+        )
+        if not no_upscale:
+            result_t = F.interpolate(result_t, scale_factor=patch_size, mode="nearest-exact")
+    else:
+        result_t = pixelize(
+            img_t,
+            pixel_size=patch_size,
+            thickness=thickness,
+            mode=downsample_mode,
+            do_quant=colors > 0,
+            num_colors=colors,
+            dither_mode=dither,
+            no_post_upscale=no_upscale,
+        )
+
     result = Image.fromarray(to_numpy(result_t)[0])
     return result
+
+
+def generate_filename(
+    img,
+    target_h,
+    target_w,
+    patch_size,
+    thickness,
+    downsample_mode,
+    colors,
+    dither,
+    quant_after,
+    no_upscale,
+    force_png,
+):
+    if img is None:
+        return "pixeloe_result.png"
+
+    base_name = "pixeloe"
+    params = []
+    params.append(f"{target_w}x{target_h}")
+    params.append(f"p{patch_size}")
+    if thickness > 0:
+        params.append(f"t{thickness}")
+    params.append(downsample_mode)
+    if colors > 0:
+        params.append(f"{colors}c")
+        if dither != "None":
+            params.append(dither)
+        if quant_after:
+            params.append("qa")
+    if no_upscale:
+        params.append("noup")
+
+    ext = ".png" if force_png else ".png"
+    filename = f"{base_name}_{'_'.join(params)}{ext}"
+    return filename
 
 
 def pixelization_ui():
@@ -111,6 +186,7 @@ def pixelization_ui():
             submit = gr.Button("Submit")
         with gr.Column():
             result = gr.Image(label="Result Image")
+            download_btn = gr.DownloadButton(label="Download Result", visible=False)
             with gr.Accordion("Settings", open=False), gr.Row():
                 with gr.Column(min_width=50, scale=2):
                     with gr.Row():
@@ -140,6 +216,23 @@ def pixelization_ui():
                         choices=["None", "ordered", "error_diffusion"],
                         value="ordered",
                     )
+                    quant_after = gr.Checkbox(
+                        label="Quantize After Pixelization",
+                        value=False,
+                    )
+                    no_upscale = gr.Checkbox(
+                        label="No Upscale (Return Small Image)",
+                        value=False,
+                    )
+                    force_png = gr.Checkbox(
+                        label="Force PNG Output",
+                        value=True,
+                    )
+    inp.upload(
+        adapt_on_upload,
+        inputs=[inp, bind],
+        outputs=[target_h, target_w],
+    )
     target_w.input(
         w_bind,
         inputs=[target_h, target_w, inp, bind],
@@ -152,10 +245,25 @@ def pixelization_ui():
         outputs=target_w,
         trigger_mode="always_last",
     )
+    def process_and_save(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png):
+        result_img = pixelize_image(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale)
+        if result_img is None:
+            return None, gr.update(visible=False), None
+
+        filename = generate_filename(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png)
+        temp_path = f"/tmp/{filename}"
+
+        if force_png:
+            result_img.save(temp_path, format="PNG")
+        else:
+            result_img.save(temp_path)
+
+        return result_img, gr.update(visible=True, value=temp_path), temp_path
+
     submit.click(
-        pixelize_image,
-        inputs=[inp, target_h, target_w, patch_size, thickness, down, colors, dither],
-        outputs=result,
+        process_and_save,
+        inputs=[inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png],
+        outputs=[result, download_btn, gr.State()],
     )
 
 
@@ -213,6 +321,11 @@ def outline_expansion_ui():
             erode_img = gr.Image(label="Eroded Image")
         with gr.Column():
             weight_img = gr.Image(label="Weight Map")
+    inp.upload(
+        adapt_on_upload,
+        inputs=[inp, bind],
+        outputs=[target_h, target_w],
+    )
     target_w.input(
         w_bind,
         inputs=[target_h, target_w, inp, bind],

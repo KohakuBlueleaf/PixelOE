@@ -94,17 +94,28 @@ pixeloe.pixelize img/test.webp --output_img img/test2.webp --target_size 256 --p
 ### Gradio
 
 ![1737572469521](image/README/1737572469521.png)
-install gradio first:
+If you want to an interface to easily test it, you can install it with gradio:
 
 ```bash
-pip install gradio
+pip install -r requirements-gradio.txt
 ```
 
-Than run the gradio client server:
+Then run the demo:
 
 ```bash
 python ./client/demo-gr.py
 ```
+
+After startup, the app should be available at http://localhost:7860
+    
+**With Standalone Window (Desktop app):**
+
+```bash
+pip install -r requirements-standalone.txt   # With standalone window
+```
+
+Note that the standalone window may have additional requirements to run.
+For example, on Linux, you must have either QT or GTK with Python extensions installed in order to use pywebview.
 
 ### Python API
 

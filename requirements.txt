@@ -1,3 +1,6 @@
 numpy
 opencv-python
 pillow
+torch
+torchvision
+kornia
