@@ -18,6 +18,7 @@ def pixelize(
     thickness=3,
     mode="contrast",
     sharpen_mode=None,
+    sharpen_factor=0.5,
     do_color_match=True,
     do_quant=False,
     num_colors=32,
@@ -38,8 +39,8 @@ def pixelize(
     h, w = img_t.shape[2], img_t.shape[3]
     out_h = h // pixel_size
     out_w = w // pixel_size
-    pad_h = pixel_size - h % pixel_size
-    pad_w = pixel_size - w % pixel_size
+    pad_h = pixel_size - ((h % pixel_size) or pixel_size)
+    pad_w = pixel_size - ((w % pixel_size) or pixel_size)
     if pad_h or pad_w:
         img_t = F.pad(
             img_t,
@@ -60,9 +61,11 @@ def pixelize(
 
     match sharpen_mode:
         case "unsharp":
-            expanded = unsharp_mask(expanded, kernel_size=3, sigma=1.0, amount=0.5)
+            expanded = unsharp_mask(
+                expanded, kernel_size=3, sigma=1.0, amount=sharpen_factor
+            )
         case "laplacian":
-            expanded = laplacian_sharpen(expanded, amount=0.5)
+            expanded = laplacian_sharpen(expanded, amount=sharpen_factor)
 
     if weighted_quant:
         if oe_weights is None:

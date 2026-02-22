@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 
-def unsharp_mask(x, kernel_size=3, sigma=1.0, amount=1.0, threshold=0):
+def unsharp_mask(x, kernel_size=3, sigma=1.0, amount=1.0, threshold=0.1):
     """
     Apply unsharp masking to a batch of images
 
