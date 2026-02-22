@@ -5,8 +5,14 @@ import os
 import sys
 import logging
 import copy
-import pkg_resources
 import subprocess
+
+# Replacement for deprecated pkg_resources
+try:
+    from importlib.metadata import version as get_version, PackageNotFoundError
+except ImportError:
+    # Fallback for Python < 3.8
+    import pkg_resources
 
 
 PIXELOE_VERSION = "0.1.4"
@@ -75,7 +81,12 @@ logger.debug("Logger initialized.")
 
 def get_installed_version(package: str):
     try:
-        return pkg_resources.get_distribution(package).version
+        if "get_version" in globals():
+            # importlib.metadata check
+            return get_version(package)
+        else:
+            # Legacy pkg_resources check
+            return pkg_resources.get_distribution(package).version
     except Exception:
         return None
 
