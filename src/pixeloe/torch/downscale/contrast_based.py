@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
-from kornia.color import lab_to_rgb, rgb_to_lab
 
+from ..lab import lab_to_rgb, rgb_to_lab
 from ..utils import compile_wrapper
 
 

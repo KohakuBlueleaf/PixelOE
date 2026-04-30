@@ -26,6 +26,8 @@ def pixelize(
     dither_mode="ordered",
     no_post_upscale=False,
     return_intermediate=False,
+    weight_mapping="current",
+    weight_normalize="global",
 ):
     """
     Main pipeline: pixelize an image using PyTorch.
@@ -54,7 +56,12 @@ def pixelize(
     oe_weights = None
     if thickness > 0:
         expanded, oe_weights = outline_expansion(
-            img_t, thickness, thickness, pixel_size
+            img_t,
+            thickness,
+            thickness,
+            pixel_size,
+            weight_mapping=weight_mapping,
+            weight_normalize=weight_normalize,
         )
     else:
         expanded = img_t
@@ -69,7 +76,13 @@ def pixelize(
 
     if weighted_quant:
         if oe_weights is None:
-            weights = expansion_weight(img_t, pixel_size, pixel_size // 2)
+            weights = expansion_weight(
+                img_t,
+                pixel_size,
+                pixel_size // 2,
+                mapping=weight_mapping,
+                normalize=weight_normalize,
+            )
         else:
             weights = oe_weights
         weights = torch.abs(weights * 2 - 1) * weights
@@ -98,7 +111,7 @@ def pixelize(
             weights=weights,
             num_centroids=num_colors,
             quant_mode=quant_mode,
-            dither_method=dither_mode,
+            dither_method=dither_mode.lower(),
             repeat_mode=repeat_mode,
         )
         down_final = match_color(down_final, down)

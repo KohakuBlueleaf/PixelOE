@@ -2,8 +2,8 @@ from functools import lru_cache
 
 import torch
 import torch.nn.functional as F
-from kornia.color import rgb_to_lab, lab_to_rgb
 
+from .lab import lab_to_rgb, rgb_to_lab
 from .utils import batched_kmeans_iter
 from .utils import compile_wrapper
 from .utils import generate_repeat_table, repeat_elements
@@ -38,7 +38,10 @@ def wavelet_blur(x: torch.Tensor, radius: int) -> torch.Tensor:
 
     # Pad input for same size output
     pad_size = radius
-    x_pad = F.pad(x, (pad_size, pad_size, pad_size, pad_size), mode="reflect")
+    pad_mode = (
+        "reflect" if x.shape[-2] > pad_size and x.shape[-1] > pad_size else "replicate"
+    )
+    x_pad = F.pad(x, (pad_size, pad_size, pad_size, pad_size), mode=pad_mode)
 
     # Apply convolution for each batch and channel
     return F.conv2d(x_pad, kernel.to(x), groups=x.size(1))
