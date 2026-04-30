@@ -20,6 +20,7 @@ CATEGORY = "utils/pixel"
 
 
 def image_preprocess(img: torch.Tensor, device: str):
+    use_channel_last = False
     if img.ndim == 3:
         img = img.unsqueeze(0)
     if img.size(3) <= 4:
@@ -45,6 +46,7 @@ class PixelOE:
             "num_colors": ("INT", {"default": 256, "min": 2, "max": 256}),
             "quant_mode": (["kmeans", "weighted-kmeans", "repeat-kmeans"],),
             "dither_mode": (["ordered", "error_diffusion", "none"],),
+            "weight_mapping": (["current", "contrast_ratio", "contrast_gated"],),
             "device": (["default", "cpu", "cuda", "mps"],),
         },
     }
@@ -68,6 +70,7 @@ class PixelOE:
         num_colors: int,
         quant_mode: str,
         dither_mode: str,
+        weight_mapping: str,
         device: str,
     ):
         img, use_channel_last, org_device = image_preprocess(img, device)
@@ -83,6 +86,7 @@ class PixelOE:
             dither_mode=dither_mode,
             no_post_upscale=no_post_upscale,
             return_intermediate=True,
+            weight_mapping=weight_mapping,
         )
         if oe_weight is not None:
             oe_weight = oe_weight.to(org_device).repeat(1, 3, 1, 1)
@@ -106,6 +110,7 @@ class OutlineExpansion:
             "img": ("IMAGE",),
             "pixel_size": ("INT", {"default": 4, "min": 1, "max": 32}),
             "thickness": ("INT", {"default": 3, "min": 1, "max": 6}),
+            "weight_mapping": (["current", "contrast_ratio", "contrast_gated"],),
             "device": (["default", "cpu", "cuda", "mps"],),
         },
     }
@@ -122,10 +127,17 @@ class OutlineExpansion:
         img: torch.Tensor,
         pixel_size: int,
         thickness: int,
+        weight_mapping: str,
         device: str,
     ):
         img, use_channel_last, org_device = image_preprocess(img, device)
-        oe_image, oe_weight = outline_expansion(img, thickness, thickness, pixel_size)
+        oe_image, oe_weight = outline_expansion(
+            img,
+            thickness,
+            thickness,
+            pixel_size,
+            weight_mapping=weight_mapping,
+        )
         oe_image = oe_image.to(org_device)
         oe_weight = oe_weight.to(org_device).repeat(1, 3, 1, 1)
         if use_channel_last:

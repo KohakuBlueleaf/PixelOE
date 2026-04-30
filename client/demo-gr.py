@@ -1,4 +1,5 @@
 import os
+import tempfile
 import time
 from threading import Thread
 
@@ -14,7 +15,7 @@ import pixeloe.torch.env as pixeloe_env
 from pixeloe.torch.minmax import dilate_cont, erode_cont, KERNELS
 from pixeloe.torch.outline import outline_expansion
 from pixeloe.torch.pixelize import pixelize
-from pixeloe.torch.color import match_color, quantize_and_dither
+from pixeloe.torch.color import quantize_and_dither
 from pixeloe.torch.utils import pre_resize, to_numpy
 from pixeloe.logger import logger
 
@@ -40,8 +41,8 @@ downsample_mode = [
 avaliabe_devices = {"cpu": lambda: None}
 if torch.cuda.is_available():
     avaliabe_devices["cuda"] = torch.cuda.empty_cache
-if torch._C._mps_is_available():
-    avaliabe_devices["mps"] = torch.xpu.empty_cache
+if torch.backends.mps.is_available():
+    avaliabe_devices["mps"] = getattr(torch.mps, "empty_cache", lambda: None)
 if torch.xpu.is_available():
     avaliabe_devices["xpu"] = torch.xpu.empty_cache
 device = torch.device(list(avaliabe_devices)[-1])
@@ -103,7 +104,9 @@ def pixelize_image(
     dither: str,
     quant_after: bool,
     no_upscale: bool,
+    weight_mapping: str = "current",
 ) -> Image:
+    dither = dither.lower()
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
         .to(device)
@@ -118,6 +121,7 @@ def pixelize_image(
             mode=downsample_mode,
             do_quant=False,
             no_post_upscale=True,
+            weight_mapping=weight_mapping,
         )
         result_t = quantize_and_dither(
             result_t,
@@ -125,7 +129,9 @@ def pixelize_image(
             dither_method=dither,
         )
         if not no_upscale:
-            result_t = F.interpolate(result_t, scale_factor=patch_size, mode="nearest-exact")
+            result_t = F.interpolate(
+                result_t, scale_factor=patch_size, mode="nearest-exact"
+            )
     else:
         result_t = pixelize(
             img_t,
@@ -136,6 +142,7 @@ def pixelize_image(
             num_colors=colors,
             dither_mode=dither,
             no_post_upscale=no_upscale,
+            weight_mapping=weight_mapping,
         )
 
     result = Image.fromarray(to_numpy(result_t)[0])
@@ -154,6 +161,7 @@ def generate_filename(
     quant_after,
     no_upscale,
     force_png,
+    weight_mapping="current",
 ):
     if img is None:
         return "pixeloe_result.png"
@@ -167,12 +175,14 @@ def generate_filename(
     params.append(downsample_mode)
     if colors > 0:
         params.append(f"{colors}c")
-        if dither != "None":
+        if dither != "none":
             params.append(dither)
         if quant_after:
             params.append("qa")
     if no_upscale:
         params.append("noup")
+    if weight_mapping != "current":
+        params.append(weight_mapping)
 
     ext = ".png" if force_png else ".png"
     filename = f"{base_name}_{'_'.join(params)}{ext}"
@@ -213,8 +223,13 @@ def pixelization_ui():
                     )
                     dither = gr.Dropdown(
                         label="Dithering Method",
-                        choices=["None", "ordered", "error_diffusion"],
+                        choices=["none", "ordered", "error_diffusion"],
                         value="ordered",
+                    )
+                    weight_mapping = gr.Dropdown(
+                        label="Outline Weight Mapping",
+                        choices=["current", "contrast_ratio", "contrast_gated"],
+                        value="current",
                     )
                     quant_after = gr.Checkbox(
                         label="Quantize After Pixelization",
@@ -245,13 +260,52 @@ def pixelization_ui():
         outputs=target_w,
         trigger_mode="always_last",
     )
-    def process_and_save(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png):
-        result_img = pixelize_image(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale)
+
+    def process_and_save(
+        inp,
+        target_h,
+        target_w,
+        patch_size,
+        thickness,
+        down,
+        colors,
+        dither,
+        quant_after,
+        no_upscale,
+        force_png,
+        weight_mapping,
+    ):
+        result_img = pixelize_image(
+            inp,
+            target_h,
+            target_w,
+            patch_size,
+            thickness,
+            down,
+            colors,
+            dither,
+            quant_after,
+            no_upscale,
+            weight_mapping,
+        )
         if result_img is None:
             return None, gr.update(visible=False), None
 
-        filename = generate_filename(inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png)
-        temp_path = f"/tmp/{filename}"
+        filename = generate_filename(
+            inp,
+            target_h,
+            target_w,
+            patch_size,
+            thickness,
+            down,
+            colors,
+            dither,
+            quant_after,
+            no_upscale,
+            force_png,
+            weight_mapping,
+        )
+        temp_path = os.path.join(tempfile.gettempdir(), filename)
 
         if force_png:
             result_img.save(temp_path, format="PNG")
@@ -262,7 +316,20 @@ def pixelization_ui():
 
     submit.click(
         process_and_save,
-        inputs=[inp, target_h, target_w, patch_size, thickness, down, colors, dither, quant_after, no_upscale, force_png],
+        inputs=[
+            inp,
+            target_h,
+            target_w,
+            patch_size,
+            thickness,
+            down,
+            colors,
+            dither,
+            quant_after,
+            no_upscale,
+            force_png,
+            weight_mapping,
+        ],
         outputs=[result, download_btn, gr.State()],
     )
 
@@ -274,6 +341,7 @@ def outline_expansion_image(
     target_w: int,
     patch_size: int,
     thickness: int,
+    weight_mapping: str = "current",
 ) -> Image:
     img_t = (
         pre_resize(img, target_size=(target_w, target_h), patch_size=patch_size)
@@ -284,7 +352,15 @@ def outline_expansion_image(
     dilate = Image.fromarray(to_numpy(dilate_t)[0])
     erode_t = erode_cont(img_t, KERNELS[thickness].to(img_t))
     erode = Image.fromarray(to_numpy(erode_t)[0])
-    oe_t, w = outline_expansion(img_t, thickness, thickness, patch_size, 10, 3)
+    oe_t, w = outline_expansion(
+        img_t,
+        thickness,
+        thickness,
+        patch_size,
+        10,
+        3,
+        weight_mapping=weight_mapping,
+    )
     oe = Image.fromarray(to_numpy(oe_t)[0])
     w = Image.fromarray(to_numpy(w.repeat(1, 3, 1, 1))[0])
     return oe, dilate, erode, w
@@ -314,6 +390,11 @@ def outline_expansion_ui():
                         thickness = gr.Slider(
                             label="Thickness", minimum=0, maximum=6, step=1, value=3
                         )
+                        weight_mapping = gr.Dropdown(
+                            label="Outline Weight Mapping",
+                            choices=["current", "contrast_ratio", "contrast_gated"],
+                            value="current",
+                        )
     with gr.Row():
         with gr.Column():
             dilate_img = gr.Image(label="Dilated Image")
@@ -340,7 +421,7 @@ def outline_expansion_ui():
     )
     submit.click(
         outline_expansion_image,
-        inputs=[inp, target_h, target_w, patch_size, thickness],
+        inputs=[inp, target_h, target_w, patch_size, thickness, weight_mapping],
         outputs=[result, dilate_img, erode_img, weight_img],
     )
 

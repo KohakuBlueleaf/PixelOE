@@ -6,17 +6,29 @@ import sys
 import logging
 import copy
 import subprocess
+from pathlib import Path
 
 # Replacement for deprecated pkg_resources
 try:
-    from importlib.metadata import version as get_version, PackageNotFoundError
+    from importlib.metadata import version as get_version
 except ImportError:
     # Fallback for Python < 3.8
     import pkg_resources
 
 
-PIXELOE_VERSION = "0.1.4"
+PIXELOE_VERSION = "0.1.5"
 python = sys.executable
+
+
+def use_local_pixeloe():
+    repo_root = Path(__file__).resolve().parents[1]
+    src_dir = repo_root / "src"
+    if (src_dir / "pixeloe").is_dir():
+        src_path = str(src_dir)
+        if src_path not in sys.path:
+            sys.path.insert(0, src_path)
+        return True
+    return False
 
 
 def run(command) -> str:
@@ -34,7 +46,7 @@ def run(command) -> str:
         logger.error(
             f"Command failed with exit code {result.returncode}:\n{command}\n{result.stderr}"
         )
-        raise RuntimeError(f"Command failed")
+        raise RuntimeError("Command failed")
 
     return result.stdout or ""
 
@@ -92,6 +104,8 @@ def get_installed_version(package: str):
 
 
 def install_pixeloe():
+    if use_local_pixeloe():
+        return
     version = get_installed_version("pixeloe")
     if version is not None and version >= PIXELOE_VERSION:
         return
