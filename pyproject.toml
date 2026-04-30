@@ -8,7 +8,7 @@ version = "0.1.5"
 description = "Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache License 2.0"}
+license = "Apache-2.0"
 authors = [
     {name = "Shih-Ying Yeh(KohakuBlueLeaf)", email = "apolloyeh0123@gmail.com"},
 ]
@@ -36,6 +36,12 @@ all = [
     "toml",
     "pywebview",
 ]
+dev = [
+    "build",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
 
 [project.urls]
 Homepage = "https://github.com/KohakuBlueleaf/PixelOE"
@@ -50,6 +56,18 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint.per-file-ignores]
+"nodes/pixel.py" = ["E402", "E731"]
+"src/pixeloe/legacy/**/*.py" = ["F401"]
+"src/pixeloe/torch/downscale/k_centroid.py" = ["F401"]
 
 #  Used by Comfy Registry https://comfyregistry.org
 

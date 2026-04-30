@@ -6,6 +6,9 @@
 # test/demo
 *.psd
 test*.py
+!tests/test*.py
+plans/
+outputs/
 
 # Editors
 .vscode/
