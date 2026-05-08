@@ -8,7 +8,7 @@ from .minmax import dilate_cont, erode_cont, KERNELS
 
 @compile_wrapper
 def local_stat(tensor, kernel, stride, stat="median"):
-    B, C, H, W = tensor.shape
+    _, _, H, W = tensor.shape
     patches = F.unfold(tensor, kernel_size=kernel, stride=stride, padding=kernel // 2)
     if stat == "median":
         vals = patches.median(dim=1, keepdims=True).values.repeat(1, patches.size(1), 1)

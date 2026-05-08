@@ -89,7 +89,7 @@ def main():
 
         for mapping in args.mappings:
             start = time.perf_counter()
-            out_t, expanded_t, weight_t = pixelize(
+            out_t, _, weight_t = pixelize(
                 img_t,
                 pixel_size=args.pixel_size,
                 thickness=args.thickness,

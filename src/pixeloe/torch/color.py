@@ -89,8 +89,7 @@ def wavelet_colorfix(
 
 @compile_wrapper
 def centroid_generator(maxv, minv, num_centroids, device):
-    device = maxv.device
-    b, _, c = maxv.shape
+    _, _, c = maxv.shape
     if num_centroids < 8:
         interp = torch.linspace(0, 1, num_centroids, device=device)[:, None]
         centroids = interp * minv + (1 - interp) * maxv

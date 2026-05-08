@@ -13,7 +13,7 @@ def laplacian_sharpen(x, amount=1.0):
     Returns:
         torch.Tensor: Sharpened tensor with same shape as input
     """
-    batch_size, channels, height, width = x.shape
+    channels = x.shape[1]
 
     # Define Laplacian kernel
     # This is a 3x3 approximation of the Laplacian operator

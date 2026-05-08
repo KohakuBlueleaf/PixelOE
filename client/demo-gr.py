@@ -184,7 +184,7 @@ def generate_filename(
     if weight_mapping != "current":
         params.append(weight_mapping)
 
-    ext = ".png" if force_png else ".png"
+    ext = ".png" if force_png else ".webp"
     filename = f"{base_name}_{'_'.join(params)}{ext}"
     return filename
 
