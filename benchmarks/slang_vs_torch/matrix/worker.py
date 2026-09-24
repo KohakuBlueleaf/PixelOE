@@ -60,7 +60,7 @@ class TorchRunner:
         self.fn = torch_pixelize
 
     def run(self, img, kwargs):
-        return self.fn(img, **kwargs)
+        return self.fn(img, backend="torch", **kwargs)
 
     def sync(self):
         if self.device == "cuda":

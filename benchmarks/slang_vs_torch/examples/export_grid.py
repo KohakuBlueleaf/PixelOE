@@ -44,7 +44,7 @@ def main():
         x = pre_resize(src, target_size=256, patch_size=4)
         x = x.cuda() if backend != "cpu" else x
         raw = to_numpy(x)[0]
-        ref = to_numpy(torch_pixelize(x, **kw))[0]
+        ref = to_numpy(torch_pixelize(x, backend="torch", **kw))[0]
         lat = to_numpy(slang_pixelize(x, context=ctx, **kw))[0]
         sld = to_numpy(slang_pixelize(x, context=ctx, local_stats="sliding", **kw))[0]
         top = np.concatenate([label(raw, "raw"), label(ref, "torch")], axis=1)

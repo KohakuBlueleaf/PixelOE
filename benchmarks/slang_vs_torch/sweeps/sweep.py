@@ -135,7 +135,7 @@ def worker(path_name, out_file):
         ctx = None
 
         def run(x, kw):
-            return torch_pixelize(x, **kw)
+            return torch_pixelize(x, backend="torch", **kw)
 
     else:
         ctx = create_context(spec["backend"])

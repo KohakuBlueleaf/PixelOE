@@ -50,7 +50,7 @@ def main():
         stem = Path(name).stem
         for case, kw in CASES.items():
             kw = dict(pixel_size=4, thickness=3, **kw)
-            ref = to_numpy(torch_pixelize(x, **kw))[0]
+            ref = to_numpy(torch_pixelize(x, backend="torch", **kw))[0]
             out = to_numpy(slang_pixelize(x, context=ctx, **kw))[0]
             diff = np.abs(ref.astype(int) - out.astype(int))
             Image.fromarray(ref).save(OUT / f"{stem}__{case}__torch.png")

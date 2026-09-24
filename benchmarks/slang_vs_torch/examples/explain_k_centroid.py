@@ -54,8 +54,10 @@ def main():
         "no_post_upscale": True,
     }
     x = pre_resize(Image.open(ROOT / "img" / name).convert("RGB"), 256, p).cuda()
-    down_cuda, expanded, _ = torch_pixelize(x, return_intermediate=True, **kw)
-    down_cpu = torch_pixelize(x.cpu(), **kw).cuda()
+    down_cuda, expanded, _ = torch_pixelize(
+        x, return_intermediate=True, backend="torch", **kw
+    )
+    down_cpu = torch_pixelize(x.cpu(), backend="torch", **kw).cuda()
     down_slang = slang_pixelize(x, context=get_context("cuda"), **kw)
     tie = tie_mask(expanded, p)
 
