@@ -10,11 +10,13 @@ from .reduce import seg_minmax, seg_sum
 
 WEIGHTS = "quant/weights"
 KMEANS = "quant/kmeans"
+KMEANS_GROUP = "quant/kmeans_group"  # groupshared: GPU backends only
 REPEAT = "quant/repeat"
 DITHER = "dither/dither"
 ED_GROUP = "dither/ed_group"  # workgroup barriers: GPU backends only
 
-KM_CHUNK = 256  # pixels per (chunk, cluster) thread in km_partial
+KM_CHUNK = 256  # pixels per (chunk, cluster) thread in km_partial (CPU)
+KM_CHUNK_GPU = 64  # kmeans_group.slang CHUNK: pixels per km_step_group workgroup
 RP_CHUNK = 128  # remainders per thread in the repeat-table selection
 RADIX_SHIFTS = (28, 24, 20, 16, 12, 8, 4, 0)
 
@@ -207,55 +209,92 @@ def kmeans(ctx, img, num_centroids, weights=None, repeat_mode=False):
     run = ctx.empty((max(iters, 1),), "uint32")
     ctx.clear_uint(run)
     item_diff = ctx.empty((b * K,))
-    chunks = -(-count // KM_CHUNK)
+    chunk = KM_CHUNK if ctx.backend == "cpu" else KM_CHUNK_GPU
+    chunks = -(-count // chunk)
     part = ctx.empty((b, chunks, K, 4), "int64")
+    use_repeat = 1 if repeat is not None else 0
     for it in range(iters):
-        ctx.dispatch(
-            KMEANS,
-            "km_assign",
-            (b * count,),
-            pix=img,
-            weight=dummy_f,
-            cent=cent,
-            labels=labels,
-            item_diff=item_diff,
-            run=run,
-            it=it,
-            K=K,
-            count=count,
-            batch=b,
-            weighted=weighted,
-        )
-        ctx.dispatch(
-            KMEANS,
-            "km_partial",
-            (b * chunks * K,),
-            pix=img,
-            repeat=dummy_u,
-            labels=labels,
-            part=part,
-            run=run,
-            it=it,
-            K=K,
-            count=count,
-            batch=b,
-            chunk=KM_CHUNK,
-            chunks=chunks,
-            use_repeat=1 if repeat is not None else 0,
-        )
-        ctx.dispatch(
-            KMEANS,
-            "km_update",
-            (b * K,),
-            part=part,
-            cent=cent,
-            item_diff=item_diff,
-            run=run,
-            it=it,
-            K=K,
-            batch=b,
-            chunks=chunks,
-        )
+        if ctx.backend == "cpu":
+            ctx.dispatch(
+                KMEANS,
+                "km_assign",
+                (b * count,),
+                pix=img,
+                weight=dummy_f,
+                cent=cent,
+                labels=labels,
+                item_diff=item_diff,
+                run=run,
+                it=it,
+                K=K,
+                count=count,
+                batch=b,
+                weighted=weighted,
+            )
+            ctx.dispatch(
+                KMEANS,
+                "km_partial",
+                (b * chunks * K,),
+                pix=img,
+                repeat=dummy_u,
+                labels=labels,
+                part=part,
+                run=run,
+                it=it,
+                K=K,
+                count=count,
+                batch=b,
+                chunk=chunk,
+                chunks=chunks,
+                use_repeat=use_repeat,
+            )
+        else:  # assignment + member sums in one pass (km_step_group)
+            ctx.dispatch(
+                KMEANS_GROUP,
+                "km_step_group",
+                (b * chunks * KM_CHUNK_GPU,),
+                pix=img,
+                weight=dummy_f,
+                cent=cent,
+                repeat=dummy_u,
+                part=part,
+                item_diff=item_diff,
+                run=run,
+                it=it,
+                K=K,
+                count=count,
+                batch=b,
+                chunks=chunks,
+                weighted=weighted,
+                use_repeat=use_repeat,
+            )
+        if ctx.backend == "cpu":
+            ctx.dispatch(
+                KMEANS,
+                "km_update",
+                (b * K,),
+                part=part,
+                cent=cent,
+                item_diff=item_diff,
+                run=run,
+                it=it,
+                K=K,
+                batch=b,
+                chunks=chunks,
+            )
+        else:  # one workgroup per (b, k): exact integer sums, same result
+            ctx.dispatch(
+                KMEANS_GROUP,
+                "km_update_group",
+                (b * K * 256,),
+                part=part,
+                cent=cent,
+                item_diff=item_diff,
+                run=run,
+                it=it,
+                K=K,
+                chunks=chunks,
+            )
     quant = ctx.empty(img.shape)
     ctx.dispatch(
         KMEANS,
