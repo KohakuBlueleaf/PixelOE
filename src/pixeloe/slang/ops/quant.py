@@ -14,6 +14,7 @@ KMEANS_GROUP = "quant/kmeans_group"  # groupshared: GPU backends only
 REPEAT = "quant/repeat"
 DITHER = "dither/dither"
 ED_GROUP = "dither/ed_group"  # workgroup barriers: GPU backends only
+ED_SHARED_CAP = 8000  # ed_group.slang SHARED_CAP (floats): 12 W + 3 K must fit
 
 KM_CHUNK = 256  # pixels per (chunk, cluster) thread in km_partial (CPU)
 KM_CHUNK_GPU = 64  # kmeans_group.slang CHUNK: pixels per km_step_group workgroup
@@ -347,7 +348,18 @@ def dither(ctx, img, quantized, palette, method, ed_impl=None):
         work = ctx.empty(img.shape)
         ctx.copy(img, work)
         err = ctx.empty((b, 3, 3, w))
-        if ed_impl == "group":
+        if ed_impl == "group" and 12 * w + 3 * K <= ED_SHARED_CAP:
+            ctx.dispatch(
+                ED_GROUP,
+                "ed_rows_shared",
+                (b * 1024,),
+                img=work,
+                pal=palette,
+                K=K,
+                height=h,
+                width=w,
+            )
+        elif ed_impl == "group":
             ctx.dispatch(
                 ED_GROUP,
                 "ed_all_steps",

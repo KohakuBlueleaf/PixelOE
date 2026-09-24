@@ -8,6 +8,7 @@ from slang_helpers import all_backends, compare, dev, host, photo, shared_contex
 
 import pixeloe.slang.ops.color as color
 import pixeloe.slang.ops.outline as outline
+import pixeloe.slang.ops.quant as quant
 from pixeloe.slang.ops import downscale
 
 
@@ -75,6 +76,20 @@ def test_fused_morph_matches_pass_chain(backend, thickness, monkeypatch):
     # a few ulp: DXC contracts v - k + 1 differently in the fused kernel
     assert compare(got[0], ref[0])["max"] <= 1e-6
     assert compare(got[1], ref[1])["max"] <= 1e-6
+
+
+@pytest.mark.parametrize("backend", [b for b in all_backends() if b != "cpu"])
+@pytest.mark.parametrize("shape", [(2, 5), (3, 7), (41, 57), (64, 96), (27, 480)])
+def test_error_diffusion_shared_matches_global(backend, shape, monkeypatch):
+    ctx = shared_context(backend)
+    img = photo(*shape, batch=2)
+    arr = dev(ctx, img)
+    palette = quant.kmeans(ctx, arr, 16)[1]
+    shared = host(ctx, quant.dither(ctx, arr, None, palette, "error_diffusion"), img)
+    monkeypatch.setattr(quant, "ED_SHARED_CAP", 0)
+    ref = host(ctx, quant.dither(ctx, arr, None, palette, "error_diffusion"), img)
+    ctx.release(arr, palette)
+    assert compare(shared, ref)["max"] == 0.0
 
 
 @pytest.mark.parametrize("backend", all_backends())
