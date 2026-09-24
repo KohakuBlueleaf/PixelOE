@@ -117,14 +117,17 @@ void lab_moments_partial(
     uniform uint chunk,
     uniform uint chunks)
 {
+    // thread t folds pixels t, t + chunks, ...: consecutive threads read
+    // consecutive pixels (coalesced); the order is fixed, so deterministic
     uint t = tid.x;
     if (t >= chunks)
         return;
-    uint begin = t * chunk;
-    uint end = min(begin + chunk, pixels);
     Moments m = { 0.0, 0.0, 0.0 };
-    for (uint q = begin; q < end; q++)
+    for (uint k = 0; k < chunk; k++)
     {
+        uint q = t + k * chunks;
+        if (q >= pixels)
+            break;
         uint b = q / hw;
         uint base = b * 3 * hw + (q - b * hw);
         float3 lab = rgb_to_lab(float3(img[base], img[base + hw], img[base + 2 * hw]));
@@ -137,37 +140,37 @@ void lab_moments_partial(
     part[t * 3 + 2] = m.m2;
 }
 
+// A level of Chan merges; the last level (chunks == 1) also writes
+// stats[slot * 2 + 0] = mean, stats[slot * 2 + 1] = unbiased std.
 [shader("compute")]
 [numthreads(256, 1, 1)]
 void moments_merge(
     uint3 tid: SV_DispatchThreadID,
     uniform StructuredBuffer<float> src,
     uniform RWStructuredBuffer<float> part,
+    uniform RWStructuredBuffer<float> stats,
     uniform uint count, // partials in src
     uniform uint chunk,
-    uniform uint chunks)
+    uniform uint chunks,
+    uniform uint slot)
 {
     uint t = tid.x;
     if (t >= chunks)
         return;
-    uint end = min((t + 1) * chunk, count);
     Moments m = { 0.0, 0.0, 0.0 };
-    for (uint c = t * chunk; c < end; c++)
+    for (uint k = 0; k < chunk; k++) // partials t, t + chunks, ... (coalesced)
+    {
+        uint c = t + k * chunks;
+        if (c >= count)
+            break;
         m.merge(src[c * 3 + 0], src[c * 3 + 1], src[c * 3 + 2]);
+    }
     part[t * 3 + 0] = m.n;
     part[t * 3 + 1] = m.mean;
     part[t * 3 + 2] = m.m2;
-}
-
-// stats[slot * 2 + 0] = mean, stats[slot * 2 + 1] = unbiased std
-[shader("compute")]
-[numthreads(1, 1, 1)]
-void moments_finalize(
-    uint3 tid: SV_DispatchThreadID,
-    uniform StructuredBuffer<float> part,
-    uniform RWStructuredBuffer<float> stats,
-    uniform uint slot)
-{
-    stats[slot * 2 + 0] = part[1];
-    stats[slot * 2 + 1] = sqrt(part[2] / (part[0] - 1.0));
+    if (chunks == 1)
+    {
+        stats[slot * 2 + 0] = m.mean;
+        stats[slot * 2 + 1] = sqrt(m.m2 / (m.n - 1.0));
+    }
 }
