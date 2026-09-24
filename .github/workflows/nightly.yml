@@ -1,0 +1,78 @@
+name: Nightly
+
+on:
+  schedule:
+    # 03:00 UTC daily; a commit landing later waits for the next run.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Build even when the gate says there is nothing new"
+        required: false
+        default: false
+        type: boolean
+
+# Serialised and never cancelled: a second run has to see the tags the first
+# one pushed, or both would decide the same commit is unbuilt.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  # Decides only; release.yml builds and uploads (one PyPI trusted publisher).
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          # Every release leaves a v* tag on its commit; the gate reads them.
+          fetch-tags: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Decide whether a nightly is due
+        id: gate
+        shell: bash
+        run: |
+          head=$(git rev-parse HEAD)
+          today=$(date -u +%Y%m%d)
+          # A v* tag on HEAD: main has not moved since the last release.
+          published=$(git tag --points-at HEAD --list 'v*' | head -n1)
+          # One nightly per UTC day, even across re-runs.
+          already_today=$(git tag --list "v*.dev${today}*" | head -n1)
+          if [ "${{ inputs.force }}" = "true" ]; then
+            reason="forced"; build=true
+          elif [ -n "${published}" ]; then
+            reason="${head} is already released as ${published}"; build=false
+          elif [ -n "${already_today}" ]; then
+            reason="${already_today} was already cut today"; build=false
+          else
+            reason="main is at ${head}, unreleased"; build=true
+          fi
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+          echo "${reason}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Compute the nightly version
+        id: compute
+        if: steps.gate.outputs.build == 'true'
+        run: |
+          version=$(python scripts/ci/version.py nightly)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "nightly ${version}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # workflow_dispatch is the one event a GITHUB_TOKEN may start.
+      - name: Dispatch the release workflow
+        if: steps.gate.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release.yml \
+            -f ref=main \
+            -f version="${{ steps.compute.outputs.version }}"

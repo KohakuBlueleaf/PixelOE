@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  # A v* tag push publishes (a release cut in the GitHub UI pushes its tag).
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag, branch or sha to release"
+        required: false
+        default: ""
+      version:
+        description: "Stamp this version before building (nightlies pass X.Y.Z.devN)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  id-token: write
+
+# The only workflow that builds or uploads, so PyPI needs one trusted
+# publisher: this file, environment `pypi`.
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            python scripts/ci/version.py write "${{ inputs.version }}"
+          fi
+          version=$(python scripts/ci/version.py read)
+          case "${version}" in
+            *dev*|*a*|*b*|*rc*) pre=true ;;
+            *) pre=false ;;
+          esac
+          {
+            echo "version=${version}"
+            echo "prerelease=${pre}"
+          } >> "$GITHUB_OUTPUT"
+          echo "releasing ${version} (prerelease=${pre})"
+
+      # A tag that disagrees with pyproject is a mis-cut release: stop before
+      # anything is uploaded, since a PyPI filename cannot be reused.
+      - name: Tag must match pyproject
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          test "${tag}" = "${{ steps.version.outputs.version }}" \
+            || { echo "tag ${tag} != pyproject ${{ steps.version.outputs.version }}"; exit 1; }
+
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pixeloe
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-github:
+    name: Publish the GitHub release
+    needs: [build, publish-pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          version="${{ needs.build.outputs.version }}"
+          tag="v${version}"
+          flag=""
+          if [ "${{ needs.build.outputs.prerelease }}" = "true" ]; then
+            flag="--prerelease"
+          fi
+          notes=$(python scripts/ci/release_notes.py --version "${version}")
+          if ! gh release view "${tag}" >/dev/null 2>&1; then
+            gh release create "${tag}" --title "PixelOE ${version}" \
+              --notes "${notes}" ${flag} --target "$(git rev-parse HEAD)"
+          else
+            gh release edit "${tag}" --title "PixelOE ${version}" \
+              --notes "${notes}" ${flag}
+          fi
+          for f in dist/*; do gh release upload "${tag}" "$f" --clobber; done
+
+  # Stable releases only: the Comfy registry takes plain semver.
+  publish-comfy:
+    name: Publish to the Comfy registry
+    needs: [build, publish-pypi]
+    if: needs.build.outputs.prerelease != 'true' && github.repository_owner == 'KohakuBlueleaf'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: Comfy-Org/publish-node-action@v1
+        with:
+          personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
