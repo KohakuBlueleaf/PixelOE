@@ -66,9 +66,10 @@ def test_sliding_weight(backend, k, padding, mapping):
     assert compare(out, ref)["max"] < 5e-5
 
 
-def test_sliding_differs_from_lattice():
+@pytest.mark.parametrize("backend", all_backends()[:1])
+def test_sliding_differs_from_lattice(backend):
     """The knob is live: sliding and lattice statistics are different maps."""
-    ctx = shared_context(all_backends()[0])
+    ctx = shared_context(backend)
     img = photo(48, 64)
     arr = dev(ctx, img)
     a = host(ctx, normalized_weight(ctx, expansion_weight(ctx, arr, 4, 2)), img)

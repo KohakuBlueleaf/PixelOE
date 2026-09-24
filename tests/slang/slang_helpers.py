@@ -1,5 +1,6 @@
 """Shared helpers for the Slang conformance tests (torch path = oracle)."""
 
+import os
 from functools import cache
 from pathlib import Path
 
@@ -11,7 +12,14 @@ from pixeloe.slang.runtime.registry import ALL_BACKENDS, create_context
 
 ROOT = Path(__file__).resolve().parents[2]
 TORCH_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BACKENDS = ALL_BACKENDS
+# PIXELOE_SLANG_BACKENDS="cpu,cuda" restricts the backends under test ("none":
+# no backend, for CI runners without a GPU or a C++ toolchain).
+_ONLY = os.environ.get("PIXELOE_SLANG_BACKENDS")
+BACKENDS = (
+    ALL_BACKENDS
+    if _ONLY is None
+    else tuple(b for b in ALL_BACKENDS if b in _ONLY.split(","))
+)
 
 
 @cache
