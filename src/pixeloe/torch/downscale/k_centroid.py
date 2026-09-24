@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import cv2
 import numpy as np
 
-from tqdm import trange
 from ..utils import batched_kmeans_iter
 from ..utils import compile_wrapper
 
