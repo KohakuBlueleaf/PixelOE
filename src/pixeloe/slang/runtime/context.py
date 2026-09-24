@@ -287,7 +287,8 @@ class Context:
         else:
             self.wait()
             raw = arr.buffer.to_numpy().view(np.uint8)[: arr.nbytes]
-        return raw.view(arr.dtype).reshape(arr.shape).copy()
+        # to_numpy() returns a new array: a view of it is already a fresh copy
+        return raw.view(arr.dtype).reshape(arr.shape)
 
     def _staging(self, capacity, memory_type):
         """One persistent staging buffer per (size class, direction)."""
