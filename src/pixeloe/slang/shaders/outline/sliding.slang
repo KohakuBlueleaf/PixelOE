@@ -6,6 +6,7 @@
 
 import order;
 import kselect;
+import sel;
 
 float fetch(StructuredBuffer<float> lum, uint base, int y, int x, uint height, uint width, uint pad_mode)
 {
@@ -147,8 +148,8 @@ void sliding_minmax_rows(
     for (uint i = 0; i < ksize; i++)
     {
         float v = fetch(lum, base, int(y), x0 + int(i), height, width, pad_mode);
-        mn = min(mn, v);
-        mx = max(mx, v);
+        mn = fmin_s(mn, v);
+        mx = fmax_s(mx, v);
     }
     row_min[base + y * width + x] = mn;
     row_max[base + y * width + x] = mx;
@@ -183,13 +184,13 @@ void sliding_minmax_cols(
             yy = clamp(yy, 0, int(height) - 1);
         if (yy < 0 || yy >= int(height))
         {
-            mn = min(mn, 0.0);
-            mx = max(mx, 0.0);
+            mn = fmin_s(mn, 0.0);
+            mx = fmax_s(mx, 0.0);
         }
         else
         {
-            mn = min(mn, row_min[base + uint(yy) * width + x]);
-            mx = max(mx, row_max[base + uint(yy) * width + x]);
+            mn = fmin_s(mn, row_min[base + uint(yy) * width + x]);
+            mx = fmax_s(mx, row_max[base + uint(yy) * width + x]);
         }
     }
     out_min[base + y * width + x] = mn;

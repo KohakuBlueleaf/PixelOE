@@ -8,6 +8,7 @@
 import lab;
 import order;
 import kselect;
+import sel;
 
 struct BlockKeys : IKeySource
 {
@@ -68,8 +69,8 @@ void contrast_downscale(
         {
             float v = lab_img[row + dx];
             sum += v;
-            mn = min(mn, v);
-            mx = max(mx, v);
+            mn = fmin_s(mn, v);
+            mx = fmax_s(mx, v);
         }
     }
     float mu = sum / float(p * p);
@@ -130,8 +131,8 @@ void contrast_regs<let P : int>(
             if (from_rgb)
                 v = rgb_to_lab(v);
             sum += v.x;
-            mn = min(mn, v.x);
-            mx = max(mx, v.x);
+            mn = fmin_s(mn, v.x);
+            mx = fmax_s(mx, v.x);
             kl[dy * P + dx] = float_to_ordered(v.x);
             ka[dy * P + dx] = float_to_ordered(v.y);
             kb[dy * P + dx] = float_to_ordered(v.z);

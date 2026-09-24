@@ -4,6 +4,7 @@
 
 import order;
 import kselect;
+import sel;
 
 struct PatchKeys : IKeySource
 {
@@ -168,8 +169,8 @@ void lattice_stats<let H : int>(
             keys[dy * K + dx] = float_to_ordered(v);
             if (dy >= H / 2 && dy < H / 2 + H && dx >= H / 2 && dx < H / 2 + H)
             {
-                mn = min(mn, v);
-                mx = max(mx, v);
+                mn = fmin_s(mn, v);
+                mx = fmax_s(mx, v);
             }
         }
     }
@@ -238,8 +239,8 @@ void lattice_minmax(
             float v = 0.0;
             if (row_in && x >= 0 && x < int(width))
                 v = lum[base + uint(y) * width + uint(x)];
-            mn = min(mn, v);
-            mx = max(mx, v);
+            mn = fmin_s(mn, v);
+            mx = fmax_s(mx, v);
         }
     }
     uint o = (b * lat_h + i) * lat_w + j;

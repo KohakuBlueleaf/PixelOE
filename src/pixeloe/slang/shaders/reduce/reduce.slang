@@ -6,6 +6,7 @@
 
 import kahan;
 import lab;
+import sel;
 
 float f32_inf()
 {
@@ -38,8 +39,8 @@ void seg_minmax_level(
     float mx = -f32_inf();
     for (uint i = begin; i < end; i++)
     {
-        mn = min(mn, src_min[base + i]);
-        mx = max(mx, src_max[base + i]);
+        mn = fmin_s(mn, src_min[base + i]);
+        mx = fmax_s(mx, src_max[base + i]);
     }
     part_min[t] = mn;
     part_max[t] = mx;

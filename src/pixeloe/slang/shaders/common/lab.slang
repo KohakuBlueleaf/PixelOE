@@ -3,6 +3,8 @@
 
 module lab;
 
+import sel;
+
 static const float LAB_WHITE_X = 0.95047;
 static const float LAB_WHITE_Y = 1.0;
 static const float LAB_WHITE_Z = 1.08883;
@@ -22,12 +24,12 @@ public float srgb_to_linear(float v)
 
 public float linear_to_srgb(float v)
 {
-    return v > LINEAR_EPS ? 1.055 * pow(max(v, LINEAR_EPS), INV_GAMMA) - 0.055 : 12.92 * v;
+    return v > LINEAR_EPS ? 1.055 * pow(fmax_s(v, LINEAR_EPS), INV_GAMMA) - 0.055 : 12.92 * v;
 }
 
 float lab_f(float v)
 {
-    return v > LAB_EPS ? pow(max(v, LAB_EPS), ONE_THIRD) : LAB_KAPPA * v + LAB_OFFSET;
+    return v > LAB_EPS ? pow(fmax_s(v, LAB_EPS), ONE_THIRD) : LAB_KAPPA * v + LAB_OFFSET;
 }
 
 float lab_f_inv(float f)
@@ -62,7 +64,7 @@ public float3 lab_to_rgb(float3 lab)
 {
     float fy = (lab.x + 16.0) / 116.0;
     float fx = lab.y / 500.0 + fy;
-    float fz = max(fy - lab.z / 200.0, 0.0);
+    float fz = fmax_s(fy - lab.z / 200.0, 0.0);
 
     float x = lab_f_inv(fx) * LAB_WHITE_X;
     float y = lab_f_inv(fy) * LAB_WHITE_Y;
@@ -72,6 +74,6 @@ public float3 lab_to_rgb(float3 lab)
     float g = -0.9692549499965682 * x + 1.8759900014898907 * y + 0.0415559265582928 * z;
     float b = 0.0556466391351772 * x + -0.2040413383665112 * y + 1.0573110696453443 * z;
 
-    return clamp(
+    return fclamp_s(
         float3(linear_to_srgb(r), linear_to_srgb(g), linear_to_srgb(b)), 0.0, 1.0);
 }
