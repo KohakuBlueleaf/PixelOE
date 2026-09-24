@@ -22,6 +22,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+slang = [
+    "slangpy",
+]
 gradio = [
     "gradio>=4.0.0",
     "toml",
@@ -56,6 +59,9 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pixeloe = ["slang/shaders/**/*.slang", "slang/runtime/cpu/*.cpp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
