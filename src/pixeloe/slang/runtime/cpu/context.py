@@ -112,17 +112,23 @@ class CpuContext:
         return arr.buffer[: arr.nbytes].view(arr.dtype).reshape(arr.shape)
 
     # ------------------------------------------------------------ torch interop
+    # Both directions copy with torch (multi-threaded) through a tensor view
+    # of the pooled numpy buffer.
     def from_torch(self, tensor, dtype=np.float32):
         arr = self.empty(tensor.shape, dtype)
-        src = tensor.detach().to("cpu").numpy()
-        np.copyto(self.view(arr), src, casting="unsafe")
+        view = torch.from_numpy(self.view(arr))
+        view.copy_(tensor.detach().reshape(view.shape))
         return arr
 
     def to_torch(self, arr, like=None):
-        data = torch.from_numpy(self.view(arr).copy())
+        view = torch.from_numpy(self.view(arr))
+        dtype = view.dtype
+        device = "cpu"
         if like is not None:
-            dtype = like.dtype if arr.dtype == np.float32 else data.dtype
-            data = data.to(device=like.device, dtype=dtype)
+            dtype = like.dtype if arr.dtype == np.float32 else view.dtype
+            device = like.device
+        data = torch.empty(view.shape, dtype=dtype, device=device)
+        data.copy_(view)
         return data
 
     def download(self, arr):
