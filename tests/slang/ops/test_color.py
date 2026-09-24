@@ -1,8 +1,16 @@
+import numpy as np
 import pytest
 import torch
 from slang_helpers import all_backends, compare, dev, host, photo, shared_context
 
-from pixeloe.slang.ops.color import lab_image, luminance, match_color
+from pixeloe.slang.ops.color import (
+    WAVELET_LEVELS,
+    exact_blur_table,
+    lab_image,
+    lowrank_blur_tables,
+    luminance,
+    match_color,
+)
 from pixeloe.torch.color import match_color as ref_match_color
 from pixeloe.torch.lab import rgb_to_lab
 
@@ -40,15 +48,47 @@ def test_match_color_exact(backend, shape):
 
 
 @pytest.mark.parametrize("backend", all_backends())
-@pytest.mark.parametrize("impl", ["tiled", "sym", "direct"])
+@pytest.mark.parametrize("impl", ["tiled", "sym", "direct", "lowrank"])
 def test_match_color_blur_impls(backend, impl):
     if backend == "cpu" and impl == "tiled":
         pytest.skip("workgroup-barrier kernel: GPU backends only")
     ctx = shared_context(backend)
     tgt = photo(70, 90)
     src = (tgt * 0.8 + 0.1).clamp(0, 1)
-    stats = compare(_match(ctx, src, tgt, impl=impl), ref_match_color(src, tgt))
+    # lowrank at full rank (clipped to 2 r + 1 per level) is the exact kernel
+    kw = {"impl": impl, "rank": 65} if impl == "lowrank" else {"impl": impl}
+    stats = compare(_match(ctx, src, tgt, **kw), ref_match_color(src, tgt))
     assert stats["max"] < 1e-4, stats
+
+
+def lowrank_error_bound(rank):
+    """Worst-case match_color deviation of a rank-`rank` blur: per level the
+    l1 norm of the kernel's SVD residual times the level's input bound (the
+    colour difference, |d| <= 1), summed over the chained levels."""
+    total = 0.0
+    for level in range(1, WAVELET_LEVELS + 1):
+        r = 2**level
+        k = exact_blur_table(r).astype(np.float64).reshape(2 * r + 1, 2 * r + 1)
+        tables = lowrank_blur_tables(r, rank).astype(np.float64)
+        n = min(rank, 2 * r + 1) * (2 * r + 1)
+        rows = tables[:n].reshape(-1, 2 * r + 1)
+        cols = tables[n:].reshape(-1, 2 * r + 1)
+        total += np.abs(k - cols.T @ rows).sum()
+    return total
+
+
+@pytest.mark.parametrize("backend", all_backends())
+@pytest.mark.parametrize("rank", [1, 2])
+def test_match_color_lowrank_within_svd_bound(backend, rank):
+    ctx = shared_context(backend)
+    tgt = photo(96, 128, batch=2)
+    src = (tgt * 0.6 + 0.3 * tgt.flip(-1)).clamp(0, 1)
+    out = _match(ctx, src, tgt, impl="lowrank", rank=rank)
+    stats = compare(out, ref_match_color(src, tgt))
+    bound = lowrank_error_bound(rank)
+    assert bound < 1 / 255
+    # 1e-4: the exact implementations' own tolerance against the reference
+    assert stats["max"] < bound + 1e-4, (stats, bound)
 
 
 @pytest.mark.parametrize("backend", all_backends())
