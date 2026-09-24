@@ -23,6 +23,9 @@ MORPH_FUSED = "outline/morph_fused"  # groupshared: GPU backends only
 MORPH_TILE = 32  # morph_fused.slang TILE (outputs per side, 32 x 8 threads)
 MORPH_IMG_CAP = 3072  # morph_fused.slang IMG_CAP / BUF_CAP (floats)
 MORPH_BUF_CAP = 2400
+# element sizes with compile-time portable entries morph_k<K> / oe_blend_k<K>
+MORPH_SIZES = (3, 5, 7)
+MORPH_OUT = 8  # morph.slang MORPH_OUT: outputs per morph_k thread
 # (blend, open) element sizes with compile-time entries oe_morph_fused_b<B>o<O>
 MORPH_FIXED_SIZES = ((3, 3), (5, 3), (5, 5), (7, 5))
 
@@ -299,18 +302,22 @@ def morph(ctx, src, iters, mode, do_clamp):
     b, c, h, w = src.shape
     se, ks = structuring_element(ctx, iters)
     dst = ctx.empty(src.shape)
+    if ks in MORPH_SIZES:
+        entry, extra, grid = f"morph_k{ks}", {}, (-(-w // MORPH_OUT), h, b * c)
+    else:
+        entry, extra, grid = "morph", {"ks": ks}, (w, h, b * c)
     ctx.dispatch(
         MORPH,
-        "morph",
-        (w, h, b * c),
+        entry,
+        grid,
         src=src,
         dst=dst,
         se=se,
-        ks=ks,
         height=h,
         width=w,
         mode=0 if mode == "erode" else 1,
         do_clamp=1 if do_clamp else 0,
+        **extra,
     )
     return dst
 
@@ -374,10 +381,15 @@ def outline_expansion(
         rw.release()
         return out, weight
     blended = ctx.empty(img.shape)
+    entry, extra = "oe_blend", {"ks_erode": ks_e, "ks_dilate": ks_d}
+    grid = (w, h, b * c)
+    if ks_e == ks_d and ks_e in MORPH_SIZES:
+        entry, extra = f"oe_blend_k{ks_e}", {}
+        grid = (-(-w // MORPH_OUT), h, b * c)
     ctx.dispatch(
         MORPH,
-        "oe_blend",
-        (w, h, b * c),
+        entry,
+        grid,
         img=img,
         w_raw=rw.raw,
         wmin=rw.wmin,
@@ -386,11 +398,10 @@ def outline_expansion(
         se_dilate=se_d,
         dst=blended,
         w_out=weight,
-        ks_erode=ks_e,
-        ks_dilate=ks_d,
         height=h,
         width=w,
         norm_mode=rw.norm_mode,
+        **extra,
     )
     rw.release()
 
