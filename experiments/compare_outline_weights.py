@@ -9,7 +9,6 @@ from PIL import Image, ImageDraw
 from pixeloe.torch.pixelize import pixelize
 from pixeloe.torch.utils import pre_resize, to_numpy
 
-
 WEIGHT_MAPPINGS = ("current", "contrast_ratio", "contrast_gated")
 
 

@@ -13,7 +13,6 @@ from pixeloe.torch.outline import outline_expansion
 from pixeloe.torch.utils import pre_resize
 from torchvision.transforms.functional import to_pil_image
 
-
 # Constants
 FUNCTION = "execute"
 CATEGORY = "utils/pixel"

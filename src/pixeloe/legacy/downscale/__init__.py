@@ -3,7 +3,6 @@ from .conventional import bicubic, nearest
 from .center import center_downscale
 from .k_centroid import k_centroid_downscale
 
-
 downscale_mode = {
     "bicubic": bicubic,
     "nearest": nearest,
