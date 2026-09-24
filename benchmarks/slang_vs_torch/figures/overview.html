@@ -1,0 +1,670 @@
+<title>PixelOE on Shaders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #f4f5f7;
+  --surface: #fcfcfd;
+  --surface-2: #eef0f3;
+  --ink: #14161a;
+  --ink-2: #4b505c;
+  --muted: #7f8491;
+  --grid: #e2e4e9;
+  --line: #b9bdc7;
+  --slang: #2a78d6;
+  --torch: #eb6834;
+  --vulkan: #1baf7a;
+  --d3d12: #eda100;
+  --slang-wash: rgba(42, 120, 214, 0.10);
+  --torch-wash: rgba(235, 104, 52, 0.10);
+  --display: "Pixelify Sans", "IBM Plex Mono", ui-monospace, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1013;
+    --surface: #16181c;
+    --surface-2: #1f2227;
+    --ink: #f1f2f4;
+    --ink-2: #b8bcc6;
+    --muted: #8a8f9a;
+    --grid: #272a30;
+    --line: #444954;
+    --slang: #3987e5;
+    --torch: #d95926;
+    --vulkan: #199e70;
+    --d3d12: #c98500;
+    --slang-wash: rgba(57, 135, 229, 0.16);
+    --torch-wash: rgba(217, 89, 38, 0.16);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1013;
+  --surface: #16181c;
+  --surface-2: #1f2227;
+  --ink: #f1f2f4;
+  --ink-2: #b8bcc6;
+  --muted: #8a8f9a;
+  --grid: #272a30;
+  --line: #444954;
+  --slang: #3987e5;
+  --torch: #d95926;
+  --vulkan: #199e70;
+  --d3d12: #c98500;
+  --slang-wash: rgba(57, 135, 229, 0.16);
+  --torch-wash: rgba(217, 89, 38, 0.16);
+}
+
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); }
+.page { max-width: 1060px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; display: grid; gap: 56px; }
+h1, h2 { font-family: var(--display); font-weight: 700; letter-spacing: 0.01em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); line-height: 1.05; }
+h2 { font-size: clamp(1.5rem, 3.5vw, 2rem); line-height: 1.15; }
+h3 { font: 600 1.1rem/1.3 var(--sans); margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; color: var(--ink-2); }
+code, .mono { font-family: var(--mono); font-size: 0.9em; }
+.eyebrow { font: 500 0.75rem/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+section { display: grid; gap: 20px; }
+.lede { font-size: 1.1rem; }
+
+/* hero */
+.hero { display: grid; gap: 22px; }
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.readout { background: var(--surface); border: 1px solid var(--grid); border-radius: 6px; padding: 16px 18px; display: grid; gap: 4px; }
+.readout .v { font: 700 2rem/1.1 var(--display); }
+.readout .v.slang { color: var(--slang); }
+.readout .k { font-size: 0.85rem; color: var(--ink-2); }
+.pixelrule { height: 8px; background:
+  linear-gradient(90deg, var(--torch) 0 8px, transparent 8px 16px, var(--slang) 16px 24px, transparent 24px) 0 0 / 32px 8px repeat-x; opacity: 0.8; }
+
+/* charts */
+.chart { background: var(--surface); border: 1px solid var(--grid); border-radius: 6px; padding: 18px 18px 12px; display: grid; gap: 10px; }
+.chart header { display: grid; gap: 4px; }
+.chart .sub { font-size: 0.88rem; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.82rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.plot { overflow-x: auto; }
+.plot svg { display: block; width: 100%; height: auto; min-width: 560px; }
+.plot text { font-family: var(--mono); font-size: 11.5px; fill: var(--ink-2); }
+.plot .lbl { font-family: var(--sans); font-size: 12.5px; fill: var(--ink); }
+.plot .val { fill: var(--ink); font-weight: 500; }
+.plot .tick { fill: var(--muted); }
+.plot .gridline { stroke: var(--grid); stroke-width: 1; }
+.plot .baseline { stroke: var(--line); stroke-width: 1; }
+.plot .mark { cursor: default; }
+.plot .mark:hover { opacity: 0.85; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+details { font-size: 0.85rem; color: var(--ink-2); }
+details summary { cursor: pointer; color: var(--muted); }
+details summary:focus-visible { outline: 2px solid var(--slang); outline-offset: 2px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 8px; }
+th, td { text-align: left; padding: 4px 12px 4px 0; border-bottom: 1px solid var(--grid); font-family: var(--mono); font-size: 0.8rem; }
+th { color: var(--muted); font-weight: 500; }
+#tip { position: fixed; pointer-events: none; z-index: 10; background: var(--ink); color: var(--bg); font: 500 12px/1.4 var(--mono); padding: 6px 9px; border-radius: 4px; max-width: 280px; white-space: pre-line; }
+
+/* diagrams */
+.pair { background: var(--surface); border: 1px solid var(--grid); border-radius: 6px; padding: 18px; display: grid; gap: 12px; margin: 0; }
+.pair figcaption { display: grid; gap: 6px; }
+.sides { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 0.8rem; }
+.side { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); }
+.side b { width: 10px; height: 10px; display: inline-block; }
+.side.t b { background: var(--torch); }
+.side.s b { background: var(--slang); }
+.dg { overflow-x: auto; }
+.dg svg { display: block; width: 100%; height: auto; min-width: 760px; color: var(--ink); }
+.dg text { font-family: var(--sans); font-size: 13px; fill: var(--ink); }
+.dg .m { font-family: var(--mono); font-size: 11.5px; fill: var(--ink-2); }
+.dg .ttl { font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; }
+.dg .ttl.t { fill: var(--torch); }
+.dg .ttl.s { fill: var(--slang); }
+.dg .box { fill: var(--surface-2); stroke: var(--line); stroke-width: 1; }
+.dg .box.t { fill: var(--torch-wash); stroke: var(--torch); }
+.dg .box.s { fill: var(--slang-wash); stroke: var(--slang); }
+.dg .edge { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+.dg .edge.t { stroke: var(--torch); }
+.dg .edge.s { stroke: var(--slang); }
+.dg .div { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 4 4; }
+.dg .cell { fill: var(--surface-2); stroke: var(--grid); stroke-width: 1; }
+.dg .cell.hot { fill: var(--slang-wash); stroke: var(--slang); }
+.dg .cell.me { fill: var(--slang); stroke: var(--slang); }
+.dg .ah-t { fill: var(--torch); }
+.dg .ah-s { fill: var(--slang); }
+.dg .ah-n { fill: var(--ink-2); }
+.foot { font-size: 0.85rem; color: var(--muted); display: grid; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <span class="eyebrow">PixelOE · Slang port · RTX 4090 / 64-thread CPU</span>
+    <h1>PixelOE on Shaders</h1>
+    <p class="lede">The torch pipeline, rewritten as Slang compute kernels that run on CUDA, Vulkan, D3D12 and a native multi-core CPU backend. Same arguments, same outputs, measured on 440 configurations against every torch variant (fp32, fp16, <code>torch.compile</code>).</p>
+    <div class="readouts" id="readouts"></div>
+    <div class="pixelrule" aria-hidden="true"></div>
+  </header>
+
+  <section aria-labelledby="bench-h">
+    <span class="eyebrow">Benchmark · run 20260924-235730</span>
+    <h2 id="bench-h">Faster on every configuration</h2>
+    <p>Every Slang path is compared with the fastest torch variant on the same device for each (size, setting) pair. The worst case is still a clear win; the median is 7–10× on GPU.</p>
+
+    <div class="chart" id="c-speed"></div>
+    <div class="chart" id="c-1080"></div>
+    <div class="chart" id="c-sizes"></div>
+    <div class="chart" id="c-cases"></div>
+    <div class="grid2">
+      <div class="chart" id="c-mem"></div>
+      <div class="chart" id="c-kern"></div>
+    </div>
+    <div class="chart" id="c-cpu"></div>
+  </section>
+
+  <section aria-labelledby="form-h">
+    <span class="eyebrow">Formulation</span>
+    <h2 id="form-h">Tensor program vs shader</h2>
+    <p>A tensor program expresses a local operator by materialising every neighbourhood as a tensor, then reducing it. A shader expresses the same operator from the point of view of one output: a thread reads the neighbourhood it needs, reduces it in registers and writes one value. The four operators below carry most of PixelOE's cost.</p>
+
+    <figure class="pair">
+      <figcaption>
+        <h3>1 · Grey-scale erosion / dilation (7×7 non-flat element)</h3>
+        <div class="sides"><span class="side t"><b></b>torch: unfold, then reduce</span><span class="side s"><b></b>slang: one thread per pixel</span></div>
+      </figcaption>
+      <div class="dg">
+        <svg viewBox="0 0 1000 250" role="img" aria-label="Torch unfolds a 1080p image into a 1.2 GB patch tensor before taking the minimum; the shader reads 49 neighbours per pixel and writes one value.">
+          <defs>
+            <marker id="a1t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-t"/></marker>
+            <marker id="a1s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-s"/></marker>
+          </defs>
+          <text x="0" y="16" class="ttl t">TENSOR PROGRAM</text>
+          <rect x="0" y="50" width="96" height="70" class="box"/>
+          <text x="48" y="80" text-anchor="middle">image</text>
+          <text x="48" y="98" text-anchor="middle" class="m">3×1080×1920</text>
+          <text x="48" y="140" text-anchor="middle" class="m">24 MB</text>
+          <line x1="100" y1="85" x2="150" y2="85" class="edge t" marker-end="url(#a1t)"/>
+          <text x="125" y="74" text-anchor="middle" class="m">unfold</text>
+          <rect x="156" y="30" width="150" height="120" class="box t"/>
+          <rect x="164" y="38" width="150" height="120" class="box t" opacity="0.6"/>
+          <rect x="172" y="46" width="150" height="120" class="box t" opacity="0.35"/>
+          <text x="247" y="96" text-anchor="middle">patches</text>
+          <text x="247" y="114" text-anchor="middle" class="m">[3·49, 2.07 M]</text>
+          <text x="247" y="190" text-anchor="middle" class="m">1.22 GB written + read</text>
+          <line x1="326" y1="85" x2="376" y2="85" class="edge t" marker-end="url(#a1t)"/>
+          <text x="351" y="74" text-anchor="middle" class="m">−k+1, min</text>
+          <rect x="382" y="50" width="96" height="70" class="box"/>
+          <text x="430" y="80" text-anchor="middle">eroded</text>
+          <text x="430" y="98" text-anchor="middle" class="m">3×1080×1920</text>
+          <text x="0" y="236" class="m">4 kernel launches, 49× the image passes through memory twice</text>
+
+          <line x1="500" y1="0" x2="500" y2="250" class="div"/>
+
+          <text x="530" y="16" class="ttl s">SHADER</text>
+          <g transform="translate(530,34)">
+            <g id="g7">
+              <rect x="0" y="0" width="16" height="16" class="cell"/><rect x="16" y="0" width="16" height="16" class="cell"/><rect x="32" y="0" width="16" height="16" class="cell"/><rect x="48" y="0" width="16" height="16" class="cell"/><rect x="64" y="0" width="16" height="16" class="cell"/><rect x="80" y="0" width="16" height="16" class="cell"/><rect x="96" y="0" width="16" height="16" class="cell"/><rect x="112" y="0" width="16" height="16" class="cell"/><rect x="128" y="0" width="16" height="16" class="cell"/>
+            </g>
+            <use href="#g7" y="16"/><use href="#g7" y="32"/><use href="#g7" y="48"/><use href="#g7" y="64"/><use href="#g7" y="80"/><use href="#g7" y="96"/><use href="#g7" y="112"/><use href="#g7" y="128"/>
+            <rect x="16" y="16" width="112" height="112" class="cell hot"/>
+            <rect x="64" y="64" width="16" height="16" class="cell me"/>
+          </g>
+          <text x="602" y="192" text-anchor="middle" class="m">7×7 window around (y, x)</text>
+          <line x1="682" y1="106" x2="742" y2="106" class="edge s" marker-end="url(#a1s)"/>
+          <text x="712" y="95" text-anchor="middle" class="m">49 reads</text>
+          <rect x="748" y="70" width="140" height="72" class="box s"/>
+          <text x="818" y="100" text-anchor="middle">thread (y, x)</text>
+          <text x="818" y="118" text-anchor="middle" class="m">min(f − k + 1)</text>
+          <text x="818" y="134" text-anchor="middle" class="m">in registers</text>
+          <line x1="892" y1="106" x2="942" y2="106" class="edge s" marker-end="url(#a1s)"/>
+          <rect x="948" y="96" width="20" height="20" class="cell me"/>
+          <text x="958" y="136" text-anchor="middle" class="m">1 write</text>
+          <text x="530" y="236" class="m">1 launch, neighbours come from L1 cache, nothing materialised</text>
+        </svg>
+      </div>
+    </figure>
+
+    <figure class="pair">
+      <figcaption>
+        <h3>2 · Wavelet colour fix (5 Gaussian levels, radius up to 32)</h3>
+        <div class="sides"><span class="side t"><b></b>torch: blur both images</span><span class="side s"><b></b>slang: blur one difference, folded</span></div>
+      </figcaption>
+      <div class="dg">
+        <svg viewBox="0 0 1000 300" role="img" aria-label="Torch blurs source and target through five depthwise 2-D convolutions each; the shader uses linearity to blur only the difference image, and folds the kernel's symmetry to cut multiplies by four.">
+          <defs>
+            <marker id="a2t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-t"/></marker>
+            <marker id="a2s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-s"/></marker>
+          </defs>
+          <text x="0" y="16" class="ttl t">TENSOR PROGRAM</text>
+          <rect x="0" y="40" width="70" height="40" class="box"/><text x="35" y="65" text-anchor="middle">src</text>
+          <rect x="0" y="140" width="70" height="40" class="box"/><text x="35" y="165" text-anchor="middle">tgt</text>
+          <g>
+            <rect x="96" y="44" width="44" height="32" class="box t"/><text x="118" y="64" text-anchor="middle" class="m">r2</text>
+            <rect x="148" y="44" width="44" height="32" class="box t"/><text x="170" y="64" text-anchor="middle" class="m">r4</text>
+            <rect x="200" y="44" width="44" height="32" class="box t"/><text x="222" y="64" text-anchor="middle" class="m">r8</text>
+            <rect x="252" y="44" width="44" height="32" class="box t"/><text x="274" y="64" text-anchor="middle" class="m">r16</text>
+            <rect x="304" y="44" width="52" height="32" class="box t"/><text x="330" y="64" text-anchor="middle" class="m">r32</text>
+            <rect x="96" y="144" width="44" height="32" class="box t"/><text x="118" y="164" text-anchor="middle" class="m">r2</text>
+            <rect x="148" y="144" width="44" height="32" class="box t"/><text x="170" y="164" text-anchor="middle" class="m">r4</text>
+            <rect x="200" y="144" width="44" height="32" class="box t"/><text x="222" y="164" text-anchor="middle" class="m">r8</text>
+            <rect x="252" y="144" width="44" height="32" class="box t"/><text x="274" y="164" text-anchor="middle" class="m">r16</text>
+            <rect x="304" y="144" width="52" height="32" class="box t"/><text x="330" y="164" text-anchor="middle" class="m">r32</text>
+          </g>
+          <line x1="70" y1="60" x2="92" y2="60" class="edge t" marker-end="url(#a2t)"/>
+          <line x1="70" y1="160" x2="92" y2="160" class="edge t" marker-end="url(#a2t)"/>
+          <line x1="356" y1="60" x2="390" y2="100" class="edge t" marker-end="url(#a2t)"/>
+          <line x1="356" y1="160" x2="390" y2="122" class="edge t" marker-end="url(#a2t)"/>
+          <rect x="394" y="92" width="86" height="40" class="box"/>
+          <text x="437" y="110" text-anchor="middle" class="m">src − B(src)</text>
+          <text x="437" y="125" text-anchor="middle" class="m">+ B(tgt)</text>
+          <text x="0" y="222" class="m">10 depthwise conv2d, 65×65 taps at r32: 4225 multiply-adds per pixel</text>
+          <text x="0" y="242" class="m">28 ms of the 52 ms fp32 pipeline at 1080p</text>
+
+          <line x1="500" y1="0" x2="500" y2="300" class="div"/>
+
+          <text x="530" y="16" class="ttl s">SHADER</text>
+          <rect x="530" y="40" width="112" height="40" class="box s"/>
+          <text x="586" y="58" text-anchor="middle" class="m">d = tgt − inp</text>
+          <text x="586" y="73" text-anchor="middle" class="m">1 pass</text>
+          <line x1="642" y1="60" x2="668" y2="60" class="edge s" marker-end="url(#a2s)"/>
+          <rect x="672" y="44" width="170" height="32" class="box s"/>
+          <text x="757" y="64" text-anchor="middle" class="m">B(d): r2 … r32, once</text>
+          <line x1="842" y1="60" x2="868" y2="60" class="edge s" marker-end="url(#a2s)"/>
+          <rect x="872" y="40" width="112" height="40" class="box s"/>
+          <text x="928" y="58" text-anchor="middle" class="m">inp + B(d)</text>
+          <text x="928" y="73" text-anchor="middle" class="m">fused in r32</text>
+          <text x="530" y="108" class="m">B is linear: src − B(src) + B(tgt) = src + B(tgt − src)</text>
+
+          <g transform="translate(530,126)">
+            <rect x="0" y="0" width="120" height="96" class="cell"/>
+            <rect x="30" y="30" width="60" height="36" class="cell hot"/>
+            <text x="60" y="52" text-anchor="middle" class="m">32×16</text>
+            <text x="60" y="114" text-anchor="middle" class="m">tile + 32 halo</text>
+            <text x="60" y="130" text-anchor="middle" class="m">in groupshared</text>
+          </g>
+          <g transform="translate(700,126)">
+            <rect x="0" y="0" width="96" height="96" class="cell"/>
+            <rect x="48" y="0" width="48" height="48" class="cell hot"/>
+            <line x1="48" y1="0" x2="48" y2="96" class="edge"/>
+            <line x1="0" y1="48" x2="96" y2="48" class="edge"/>
+            <circle cx="66" cy="22" r="4" class="ah-s"/>
+            <circle cx="30" cy="22" r="4" class="ah-n"/>
+            <circle cx="66" cy="74" r="4" class="ah-n"/>
+            <circle cx="30" cy="74" r="4" class="ah-n"/>
+            <text x="48" y="114" text-anchor="middle" class="m">w(±dy, ±dx) equal:</text>
+            <text x="48" y="130" text-anchor="middle" class="m">add 4 taps, 1 multiply</text>
+          </g>
+          <text x="830" y="160" class="m">(R+1)² = 1089</text>
+          <text x="830" y="178" class="m">multiplies vs 4225</text>
+          <text x="830" y="196" class="m">8 rows per thread,</text>
+          <text x="830" y="214" class="m">weights in registers</text>
+          <text x="530" y="290" class="m">r32 level: 1.3 ms at 1080p · bit-for-bit the reference fp16 kernel</text>
+        </svg>
+      </div>
+    </figure>
+
+    <figure class="pair">
+      <figcaption>
+        <h3>3 · Outline weight: local median / min / max on a lattice</h3>
+        <div class="sides"><span class="side t"><b></b>torch: unfold → median → repeat → fold</span><span class="side s"><b></b>slang: select per patch, gather per pixel</span></div>
+      </figcaption>
+      <div class="dg">
+        <svg viewBox="0 0 1000 250" role="img" aria-label="Torch unfolds patches, takes the median along a dimension, repeats it back and folds with a scatter-add; the shader selects each patch median with a radix select and each pixel gathers the covering patch values.">
+          <defs>
+            <marker id="a3t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-t"/></marker>
+            <marker id="a3s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-s"/></marker>
+          </defs>
+          <text x="0" y="16" class="ttl t">TENSOR PROGRAM</text>
+          <rect x="0" y="60" width="64" height="50" class="box"/><text x="32" y="90" text-anchor="middle">L/100</text>
+          <line x1="64" y1="85" x2="92" y2="85" class="edge t" marker-end="url(#a3t)"/>
+          <rect x="96" y="54" width="86" height="62" class="box t"/>
+          <text x="139" y="80" text-anchor="middle" class="m">unfold</text>
+          <text x="139" y="96" text-anchor="middle" class="m">[64, 520 k]</text>
+          <line x1="182" y1="85" x2="208" y2="85" class="edge t" marker-end="url(#a3t)"/>
+          <rect x="212" y="54" width="86" height="62" class="box t"/>
+          <text x="255" y="80" text-anchor="middle" class="m">median</text>
+          <text x="255" y="96" text-anchor="middle" class="m">(sort)</text>
+          <line x1="298" y1="85" x2="324" y2="85" class="edge t" marker-end="url(#a3t)"/>
+          <rect x="328" y="54" width="70" height="62" class="box t"/>
+          <text x="363" y="80" text-anchor="middle" class="m">repeat</text>
+          <text x="363" y="96" text-anchor="middle" class="m">×64</text>
+          <line x1="398" y1="85" x2="420" y2="85" class="edge t" marker-end="url(#a3t)"/>
+          <rect x="424" y="54" width="56" height="62" class="box t"/>
+          <text x="452" y="80" text-anchor="middle" class="m">fold</text>
+          <text x="452" y="96" text-anchor="middle" class="m">÷ fold(1)</text>
+          <text x="0" y="160" class="m">median 15 ms at 1080p fp32 · the repeat tensor is as large as the unfold</text>
+          <text x="0" y="180" class="m">fold of ones recomputes the covering counts every call</text>
+
+          <line x1="500" y1="0" x2="500" y2="250" class="div"/>
+
+          <text x="530" y="16" class="ttl s">SHADER</text>
+          <rect x="530" y="44" width="200" height="84" class="box s"/>
+          <text x="630" y="66" text-anchor="middle">thread per patch</text>
+          <text x="630" y="86" text-anchor="middle" class="m">radix select, 4-bit digits</text>
+          <text x="630" y="102" text-anchor="middle" class="m">16-bin histogram per pass</text>
+          <text x="630" y="118" text-anchor="middle" class="m">stop when bucket holds 1 key</text>
+          <line x1="730" y1="86" x2="772" y2="86" class="edge s" marker-end="url(#a3s)"/>
+          <text x="751" y="76" text-anchor="middle" class="m">lattice</text>
+          <rect x="776" y="44" width="200" height="84" class="box s"/>
+          <text x="876" y="66" text-anchor="middle">thread per pixel</text>
+          <text x="876" y="86" text-anchor="middle" class="m">sum covering patches</text>
+          <text x="876" y="102" text-anchor="middle" class="m">(≤ 16 reads) ÷ count</text>
+          <text x="876" y="118" text-anchor="middle" class="m">+ polarity mapping</text>
+          <text x="530" y="160" class="m">exact order statistic, no sort, O(1) memory per thread</text>
+          <text x="530" y="180" class="m">median 0.9 ms at 1080p · sliding-window variant: one window per pixel</text>
+        </svg>
+      </div>
+    </figure>
+
+    <figure class="pair">
+      <figcaption>
+        <h3>4 · k-means palette (one iteration, K clusters)</h3>
+        <div class="sides"><span class="side t"><b></b>torch: dense distance tensor, host-side stop test</span><span class="side s"><b></b>slang: 3 dispatches, stop flag stays on device</span></div>
+      </figcaption>
+      <div class="dg">
+        <svg viewBox="0 0 1000 250" role="img" aria-label="Torch builds a batch by pixels by clusters by channels distance tensor and masks every iteration, then reads the stop value on the host; the shader assigns per pixel in registers, sums per chunk and cluster in exact fixed point, and keeps the stop decision on the device.">
+          <defs>
+            <marker id="a4t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-t"/></marker>
+            <marker id="a4s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-s"/></marker>
+          </defs>
+          <text x="0" y="16" class="ttl t">TENSOR PROGRAM</text>
+          <rect x="0" y="44" width="140" height="64" class="box t"/>
+          <text x="70" y="68" text-anchor="middle" class="m">(x − c)² · w</text>
+          <text x="70" y="86" text-anchor="middle" class="m">[B, N, K, 3]</text>
+          <line x1="140" y1="76" x2="166" y2="76" class="edge t" marker-end="url(#a4t)"/>
+          <rect x="170" y="44" width="140" height="64" class="box t"/>
+          <text x="240" y="68" text-anchor="middle" class="m">masks · data</text>
+          <text x="240" y="86" text-anchor="middle" class="m">[B, N, K, 3] sum N</text>
+          <line x1="310" y1="76" x2="336" y2="76" class="edge t" marker-end="url(#a4t)"/>
+          <rect x="340" y="44" width="140" height="64" class="box t"/>
+          <text x="410" y="68" text-anchor="middle" class="m">diff.max()</text>
+          <text x="410" y="86" text-anchor="middle" class="m">if diff &lt; 1/256</text>
+          <path d="M410,108 L410,138 L70,138 L70,112" class="edge t" marker-end="url(#a4t)"/>
+          <text x="240" y="130" text-anchor="middle" class="m">host reads the value, next iteration</text>
+          <text x="0" y="176" class="m">1080p, K = 32: 50 MB distance tensor per iteration, ×2 for the masked sums</text>
+          <text x="0" y="196" class="m">256 colours: 232 ms (fp16)</text>
+
+          <line x1="500" y1="0" x2="500" y2="250" class="div"/>
+
+          <text x="530" y="16" class="ttl s">SHADER</text>
+          <rect x="530" y="44" width="136" height="64" class="box s"/>
+          <text x="598" y="66" text-anchor="middle" class="m">assign</text>
+          <text x="598" y="82" text-anchor="middle" class="m">thread per pixel</text>
+          <text x="598" y="98" text-anchor="middle" class="m">loop K in registers</text>
+          <line x1="666" y1="76" x2="690" y2="76" class="edge s" marker-end="url(#a4s)"/>
+          <rect x="694" y="44" width="136" height="64" class="box s"/>
+          <text x="762" y="66" text-anchor="middle" class="m">partial</text>
+          <text x="762" y="82" text-anchor="middle" class="m">chunk × cluster</text>
+          <text x="762" y="98" text-anchor="middle" class="m">int64 fixed point</text>
+          <line x1="830" y1="76" x2="854" y2="76" class="edge s" marker-end="url(#a4s)"/>
+          <rect x="858" y="44" width="120" height="64" class="box s"/>
+          <text x="918" y="66" text-anchor="middle" class="m">update</text>
+          <text x="918" y="82" text-anchor="middle" class="m">thread per</text>
+          <text x="918" y="98" text-anchor="middle" class="m">centroid</text>
+          <path d="M918,108 L918,138 L598,138 L598,112" class="edge s" marker-end="url(#a4s)"/>
+          <text x="758" y="130" text-anchor="middle" class="m">run flag on device, no host read</text>
+          <text x="530" y="176" class="m">sums exact and order-independent on every backend</text>
+          <text x="530" y="196" class="m">256 colours: 11 ms</text>
+        </svg>
+      </div>
+    </figure>
+  </section>
+
+  <footer class="foot">
+    <span>Timings are medians of ≥ 5 runs after warm-up, per image, synchronised; GPU memory is the torch allocator's peak reserve or the Slang buffer pool's peak.</span>
+    <span>Configurations: 512², 1024², 1080p, 1024² ×4 batch at pixel size 4; 2048² at pixel size 8; 18 pipeline settings. torch.compile paths cover the core settings.</span>
+  </footer>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+const DATA = {"speed":[{"path":"slang-cuda","n":48,"min":2.176527455529776,"med":8.521001814596925,"max":20.599591691816084},{"path":"slang-cuda-fp16in","n":48,"min":2.0534296028880865,"med":8.245320148809347,"max":21.55628831506595},{"path":"slang-cuda-separable","n":48,"min":2.161094224924012,"med":9.932306226848073,"max":23.997001344225},{"path":"slang-vulkan","n":48,"min":2.2166796570537803,"med":6.94785901488869,"max":20.91519466474405},{"path":"slang-d3d12","n":48,"min":1.6918500892325996,"med":6.607729269543854,"max":18.214818303115926},{"path":"slang-cpu","n":22,"min":1.8227254978524015,"med":3.0383594926504465,"max":6.206573496961016}],"p1080":[{"path":"torch-cuda-fp32","ms":53.262},{"path":"torch-cuda-fp16","ms":45.914},{"path":"torch-cuda-fp32-compile","ms":44.039},{"path":"torch-cuda-fp16-compile","ms":39.326},{"path":"slang-cuda","ms":4.577},{"path":"slang-cuda-fp16in","ms":4.841},{"path":"slang-cuda-separable","ms":3.847},{"path":"slang-vulkan","ms":5.476},{"path":"slang-d3d12","ms":6.399}],"sizes":[{"size":"512","torch":7.15,"torch_path":"torch-cuda-fp16-compile","cuda":1.651,"vulkan":2.574,"d3d12":2.762},{"size":"1024","torch":20.182,"torch_path":"torch-cuda-fp16-compile","cuda":3.852,"vulkan":3.789,"d3d12":4.328},{"size":"1080p","torch":39.326,"torch_path":"torch-cuda-fp16-compile","cuda":4.577,"vulkan":5.476,"d3d12":6.399},{"size":"1024x4","torch":75.984,"torch_path":"torch-cuda-fp16-compile","cuda":8.362,"vulkan":10.379,"d3d12":11.56},{"size":"2048p8","torch":88.011,"torch_path":"torch-cuda-fp16-compile","cuda":8.641,"vulkan":10.102,"d3d12":10.829}],"cases":[{"case":"area","torch":41.72,"torch_path":"torch-cuda-fp16","slang":4.51},{"case":"bicubic","torch":41.031,"torch_path":"torch-cuda-fp16","slang":4.307},{"case":"bilinear","torch":40.589,"torch_path":"torch-cuda-fp16","slang":4.525},{"case":"contrast_gated","torch":42.137,"torch_path":"torch-cuda-fp16","slang":4.773},{"case":"default","torch":39.326,"torch_path":"torch-cuda-fp16-compile","slang":4.577},{"case":"k_centroid","torch":39.639,"torch_path":"torch-cuda-fp16-compile","slang":4.772},{"case":"lanczos","torch":45.143,"torch_path":"torch-cuda-fp16","slang":5.055},{"case":"laplacian","torch":46.188,"torch_path":"torch-cuda-fp16","slang":4.672},{"case":"nearest","torch":41.329,"torch_path":"torch-cuda-fp16","slang":4.304},{"case":"no_color_match","torch":10.96,"torch_path":"torch-cuda-fp16-compile","slang":2.229},{"case":"quant256_none","torch":232.075,"torch_path":"torch-cuda-fp16","slang":11.266},{"case":"quant32_ed","torch":76.394,"torch_path":"torch-cuda-fp16","slang":7.787},{"case":"quant32_ordered","torch":48.652,"torch_path":"torch-cuda-fp32-compile","slang":6.591},{"case":"repeat_kmeans","torch":125.738,"torch_path":"torch-cuda-fp16","slang":9.141},{"case":"thickness0","torch":33.513,"torch_path":"torch-cuda-fp16","slang":3.039},{"case":"thickness6","torch":58.592,"torch_path":"torch-cuda-fp16","slang":5.075},{"case":"unsharp","torch":44.754,"torch_path":"torch-cuda-fp16","slang":4.655},{"case":"weighted_kmeans","torch":69.057,"torch_path":"torch-cuda-fp16","slang":7.41}],"mem":[{"path":"torch-cuda-fp32","mib":1402.0},{"path":"torch-cuda-fp16","mib":716.0},{"path":"torch-cuda-fp32-compile","mib":422.0},{"path":"torch-cuda-fp16-compile","mib":248.0},{"path":"slang-cuda","mib":166.9},{"path":"slang-cuda-fp16in","mib":166.9},{"path":"slang-cuda-separable","mib":190.6},{"path":"slang-vulkan","mib":166.9},{"path":"slang-d3d12","mib":166.9}],"cpu":[{"case":"area","torch":92.83,"slang":34.585},{"case":"bicubic","torch":89.723,"slang":35.19},{"case":"bilinear","torch":93.196,"slang":34.785},{"case":"contrast_gated","torch":101.786,"slang":36.867},{"case":"default","torch":105.825,"slang":36.061},{"case":"k_centroid","torch":114.997,"slang":36.585},{"case":"lanczos","torch":98.848,"slang":35.914},{"case":"laplacian","torch":99.761,"slang":36.514},{"case":"nearest","torch":88.1,"slang":35.527},{"case":"no_color_match","torch":48.541,"slang":12.846},{"case":"quant256_none","torch":283.813,"slang":70.99},{"case":"quant32_ed","torch":225.051,"slang":50.152},{"case":"quant32_ordered","torch":147.905,"slang":45.237},{"case":"repeat_kmeans","torch":320.644,"slang":51.662},{"case":"thickness0","torch":51.348,"slang":28.171},{"case":"thickness6","torch":121.46,"slang":46.082},{"case":"unsharp","torch":101.99,"slang":36.884},{"case":"weighted_kmeans","torch":182.526,"slang":49.166}],"kernels":[{"name":"blur2d_tiled_r32","ms":1.31,"calls":1},{"name":"lattice_median","ms":0.911,"calls":1},{"name":"moments_merge","ms":0.303,"calls":6},{"name":"blur2d_tiled_r16","ms":0.267,"calls":1},{"name":"lab_moments_partial","ms":0.206,"calls":2},{"name":"blur2d_tiled_r8","ms":0.203,"calls":1},{"name":"morph","ms":0.201,"calls":4},{"name":"contrast_downscale","ms":0.198,"calls":1},{"name":"moments_finalize","ms":0.141,"calls":2},{"name":"match_apply","ms":0.139,"calls":1},{"name":"blur2d_tiled_r4","ms":0.13,"calls":1},{"name":"luminance","ms":0.125,"calls":1},{"name":"blur2d_tiled_r2","ms":0.123,"calls":1},{"name":"oe_blend","ms":0.084,"calls":1}]};
+const NS = "http://www.w3.org/2000/svg";
+const LABEL = {
+  "torch-cuda-fp32": "torch fp32", "torch-cuda-fp16": "torch fp16",
+  "torch-cuda-fp32-compile": "torch.compile fp32", "torch-cuda-fp16-compile": "torch.compile fp16",
+  "slang-cuda": "Slang CUDA", "slang-cuda-fp16in": "Slang CUDA (fp16 in)",
+  "slang-cuda-separable": "Slang CUDA (separable blur)", "slang-vulkan": "Slang Vulkan",
+  "slang-d3d12": "Slang D3D12", "slang-cpu": "Slang CPU", "torch-cpu-fp32": "torch CPU"
+};
+const CASE = {
+  default: "default (contrast)", k_centroid: "k-centroid", lanczos: "lanczos", nearest: "nearest",
+  bilinear: "bilinear", bicubic: "bicubic", area: "area", thickness0: "no outline", thickness6: "thickness 6",
+  no_color_match: "no colour match", unsharp: "unsharp", laplacian: "laplacian", contrast_gated: "contrast-gated weight",
+  quant32_ordered: "32 colours, ordered", quant32_ed: "32 colours, error diffusion",
+  quant256_none: "256 colours", weighted_kmeans: "weighted k-means", repeat_kmeans: "repeat k-means"
+};
+const SIZE = { "512": "512²", "1024": "1024²", "1080p": "1920×1080", "1024x4": "1024² ×4", "2048p8": "2048² (p = 8)" };
+const fmt = (v) => v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
+const isSlang = (p) => p.startsWith("slang");
+
+function el(tag, attrs = {}, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function head(root, title, sub, legend) {
+  const h = document.createElement("header");
+  h.innerHTML = `<h3>${title}</h3><span class="sub">${sub}</span>`;
+  root.append(h);
+  if (legend) {
+    const l = document.createElement("div");
+    l.className = "legend";
+    l.innerHTML = legend.map(([n, c]) => `<span><i style="background:var(${c})"></i>${n}</span>`).join("");
+    root.append(l);
+  }
+}
+function table(root, cols, rows) {
+  const d = document.createElement("details");
+  d.innerHTML = `<summary>Show table</summary><div class="tablewrap"><table><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  root.append(d);
+}
+function logScale(lo, hi, x0, x1) {
+  const a = Math.log10(lo), b = Math.log10(hi);
+  return (v) => x0 + (Math.log10(v) - a) / (b - a) * (x1 - x0);
+}
+function logTicks(lo, hi) {
+  const out = [];
+  for (let e = Math.floor(Math.log10(lo)); e <= Math.ceil(Math.log10(hi)); e++)
+    for (const m of [1, 2, 5]) { const v = m * 10 ** e; if (v >= lo && v <= hi) out.push(v); }
+  return out;
+}
+function tip(node, text) { node.dataset.tip = text; node.classList.add("mark"); }
+
+/* readouts */
+(() => {
+  const gpu = DATA.speed.filter(s => s.path !== "slang-cpu");
+  const cuda = DATA.speed.find(s => s.path === "slang-cuda");
+  const cpu = DATA.speed.find(s => s.path === "slang-cpu");
+  const worst = Math.min(...gpu.map(s => s.min));
+  const mem = Object.fromEntries(DATA.mem.map(m => [m.path, m.mib]));
+  const t1080 = Object.fromEntries(DATA.p1080.map(m => [m.path, m.ms]));
+  const items = [
+    [`${cuda.med.toFixed(1)}×`, "median speed-up, Slang CUDA vs the fastest torch variant", true],
+    [`${worst.toFixed(1)}×`, "worst case over all 5 GPU Slang paths × 48 configs", true],
+    [`${fmt(t1080["slang-cuda"])} ms`, `1080p default, vs ${fmt(t1080["torch-cuda-fp16-compile"])} ms torch.compile fp16`, true],
+    [`${fmt(mem["slang-cuda"])} MiB`, `1080p peak GPU memory, vs ${fmt(mem["torch-cuda-fp32"])} MiB torch fp32`, false],
+    [`${cpu.med.toFixed(1)}×`, "median CPU speed-up, native Slang vs torch on 64 threads", false],
+  ];
+  document.getElementById("readouts").innerHTML = items.map(([v, k, s]) =>
+    `<div class="readout"><span class="v${s ? " slang" : ""}">${v}</span><span class="k">${k}</span></div>`).join("");
+})();
+
+/* 1. speed-up range per slang path (log) */
+(() => {
+  const root = document.getElementById("c-speed");
+  head(root, "Speed-up over the fastest torch variant, per configuration", "Range across all configurations of each path (min · median · max), log scale. Right of 1× means faster.",
+    [["min to max", "--line"], ["median", "--slang"]]);
+  const W = 900, rowH = 38, top = 14, left = 210, right = 70, H = top + DATA.speed.length * rowH + 34;
+  const x = logScale(0.8, 30, left, W - right);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Speed-up range per Slang path" });
+  for (const t of logTicks(0.8, 30)) {
+    svg.append(el("line", { x1: x(t), x2: x(t), y1: top - 6, y2: H - 28, class: t === 1 ? "baseline" : "gridline" }));
+    svg.append(el("text", { x: x(t), y: H - 10, "text-anchor": "middle", class: "tick" }, `${t}×`));
+  }
+  DATA.speed.forEach((s, i) => {
+    const y = top + i * rowH + rowH / 2;
+    svg.append(el("text", { x: left - 12, y: y + 4, "text-anchor": "end", class: "lbl" }, LABEL[s.path]));
+    svg.append(el("line", { x1: x(s.min), x2: x(s.max), y1: y, y2: y, stroke: "var(--line)", "stroke-width": 2, "stroke-linecap": "round" }));
+    for (const v of [s.min, s.max]) svg.append(el("circle", { cx: x(v), cy: y, r: 4, fill: "var(--surface)", stroke: "var(--ink-2)", "stroke-width": 1.5 }));
+    const c = el("circle", { cx: x(s.med), cy: y, r: 7, fill: "var(--slang)", stroke: "var(--surface)", "stroke-width": 2 });
+    tip(c, `${LABEL[s.path]}\n${s.n} configs\nmin ${s.min.toFixed(2)}× · median ${s.med.toFixed(2)}× · max ${s.max.toFixed(2)}×`);
+    svg.append(c);
+    svg.append(el("text", { x: x(s.max) + 10, y: y + 4, class: "val" }, `${s.med.toFixed(1)}×`));
+  });
+  const p = document.createElement("div"); p.className = "plot"; p.append(svg); root.append(p);
+  table(root, ["path", "configs", "min", "median", "max"], DATA.speed.map(s => [LABEL[s.path], s.n, s.min.toFixed(2) + "×", s.med.toFixed(2) + "×", s.max.toFixed(2) + "×"]));
+})();
+
+/* horizontal bars */
+function hbars(root, rows, unit, opts = {}) {
+  const W = 900, rowH = 30, top = 10, left = 230, right = 80, H = top + rows.length * rowH + 30;
+  const max = opts.max ?? Math.max(...rows.map(r => r.v)) * 1.05;
+  const x = (v) => left + v / max * (W - left - right);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opts.aria || "bar chart" });
+  const step = opts.step;
+  for (let t = 0; t <= max; t += step) {
+    svg.append(el("line", { x1: x(t), x2: x(t), y1: top - 4, y2: H - 26, class: t === 0 ? "baseline" : "gridline" }));
+    svg.append(el("text", { x: x(t), y: H - 8, "text-anchor": "middle", class: "tick" }, `${t}${unit}`));
+  }
+  rows.forEach((r, i) => {
+    const y = top + i * rowH;
+    svg.append(el("text", { x: left - 12, y: y + rowH / 2 + 4, "text-anchor": "end", class: "lbl" }, r.label));
+    const w = Math.max(2, x(r.v) - left);
+    const b = el("rect", { x: left, y: y + 6, width: w, height: rowH - 12, rx: 3, fill: `var(${r.c})` });
+    tip(b, r.tip);
+    svg.append(b);
+    svg.append(el("text", { x: left + w + 8, y: y + rowH / 2 + 4, class: "val" }, `${fmt(r.v)} ${unit}`));
+  });
+  const p = document.createElement("div"); p.className = "plot"; p.append(svg); root.append(p);
+}
+
+/* 2. 1080p default, all GPU paths */
+(() => {
+  const root = document.getElementById("c-1080");
+  head(root, "1920×1080, default settings: time per image", "Pixel size 4, thickness 3, contrast downscale, colour match. Median ms, lower is better.",
+    [["torch", "--torch"], ["Slang", "--slang"]]);
+  const rows = [...DATA.p1080].sort((a, b) => b.ms - a.ms).map(r => ({
+    label: LABEL[r.path], v: r.ms, c: isSlang(r.path) ? "--slang" : "--torch", tip: `${LABEL[r.path]}\n${r.ms.toFixed(2)} ms per image`
+  }));
+  hbars(root, rows, "ms", { step: 10, aria: "1080p time per image per implementation" });
+  table(root, ["path", "ms"], DATA.p1080.map(r => [LABEL[r.path], r.ms.toFixed(2)]));
+})();
+
+/* 3. sizes: grouped bars, log */
+(() => {
+  const root = document.getElementById("c-sizes");
+  head(root, "Default settings across image sizes", "Fastest torch variant vs the three Slang GPU backends, median ms, log scale.",
+    [["fastest torch", "--torch"], ["Slang CUDA", "--slang"], ["Slang Vulkan", "--vulkan"], ["Slang D3D12", "--d3d12"]]);
+  const series = [["torch", "--torch", "fastest torch"], ["cuda", "--slang", "Slang CUDA"], ["vulkan", "--vulkan", "Slang Vulkan"], ["d3d12", "--d3d12", "Slang D3D12"]];
+  const W = 900, grpH = 88, top = 10, left = 150, right = 70, H = top + DATA.sizes.length * grpH + 30;
+  const x = logScale(1, 100, left, W - right);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Time per image across sizes" });
+  for (const t of logTicks(1, 100)) {
+    svg.append(el("line", { x1: x(t), x2: x(t), y1: top - 4, y2: H - 26, class: "gridline" }));
+    svg.append(el("text", { x: x(t), y: H - 8, "text-anchor": "middle", class: "tick" }, `${t} ms`));
+  }
+  DATA.sizes.forEach((s, i) => {
+    const y0 = top + i * grpH;
+    svg.append(el("text", { x: left - 12, y: y0 + grpH / 2, "text-anchor": "end", class: "lbl" }, SIZE[s.size]));
+    series.forEach(([k, c, name], j) => {
+      const y = y0 + 6 + j * 18;
+      const w = x(s[k]) - left;
+      const b = el("rect", { x: left, y, width: w, height: 16, rx: 3, fill: `var(${c})` });
+      tip(b, `${SIZE[s.size]} · ${k === "torch" ? LABEL[s.torch_path] : name}\n${s[k].toFixed(2)} ms` + (k === "torch" ? "" : `\n${(s.torch / s[k]).toFixed(1)}× faster`));
+      svg.append(b);
+      svg.append(el("text", { x: left + w + 8, y: y + 12, class: "val" }, `${fmt(s[k])}`));
+    });
+  });
+  const p = document.createElement("div"); p.className = "plot"; p.append(svg); root.append(p);
+  table(root, ["size", "fastest torch", "ms", "CUDA", "Vulkan", "D3D12"], DATA.sizes.map(s => [SIZE[s.size], LABEL[s.torch_path], s.torch.toFixed(2), s.cuda.toFixed(2), s.vulkan.toFixed(2), s.d3d12.toFixed(2)]));
+})();
+
+/* dumbbell (log) */
+function dumbbell(root, rows, lo, hi, aria) {
+  const W = 900, rowH = 28, top = 10, left = 210, right = 70, H = top + rows.length * rowH + 30;
+  const x = logScale(lo, hi, left, W - right);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": aria });
+  for (const t of logTicks(lo, hi)) {
+    svg.append(el("line", { x1: x(t), x2: x(t), y1: top - 4, y2: H - 26, class: "gridline" }));
+    svg.append(el("text", { x: x(t), y: H - 8, "text-anchor": "middle", class: "tick" }, `${t} ms`));
+  }
+  rows.forEach((r, i) => {
+    const y = top + i * rowH + rowH / 2;
+    svg.append(el("text", { x: left - 12, y: y + 4, "text-anchor": "end", class: "lbl" }, r.label));
+    svg.append(el("line", { x1: x(r.slang), x2: x(r.torch), y1: y, y2: y, stroke: "var(--line)", "stroke-width": 2 }));
+    const a = el("circle", { cx: x(r.torch), cy: y, r: 6, fill: "var(--torch)", stroke: "var(--surface)", "stroke-width": 2 });
+    const b = el("circle", { cx: x(r.slang), cy: y, r: 6, fill: "var(--slang)", stroke: "var(--surface)", "stroke-width": 2 });
+    const t = `${r.label}\n${r.tname}: ${r.torch.toFixed(2)} ms\n${r.sname}: ${r.slang.toFixed(2)} ms\n${(r.torch / r.slang).toFixed(1)}× faster`;
+    tip(a, t); tip(b, t);
+    svg.append(a, b);
+    svg.append(el("text", { x: x(r.torch) + 12, y: y + 4, class: "val" }, `${(r.torch / r.slang).toFixed(1)}×`));
+  });
+  const p = document.createElement("div"); p.className = "plot"; p.append(svg); root.append(p);
+}
+
+/* 4. per setting at 1080p */
+(() => {
+  const root = document.getElementById("c-cases");
+  head(root, "Every setting at 1920×1080", "Fastest torch variant vs Slang CUDA, median ms, log scale; label = speed-up.",
+    [["fastest torch", "--torch"], ["Slang CUDA", "--slang"]]);
+  const rows = [...DATA.cases].sort((a, b) => b.torch / b.slang - a.torch / a.slang).map(c => ({
+    label: CASE[c.case], torch: c.torch, slang: c.slang, tname: LABEL[c.torch_path], sname: "Slang CUDA"
+  }));
+  dumbbell(root, rows, 1, 300, "Per setting time at 1080p");
+  table(root, ["setting", "fastest torch", "ms", "Slang CUDA ms", "speed-up"], DATA.cases.map(c => [CASE[c.case], LABEL[c.torch_path], c.torch.toFixed(2), c.slang.toFixed(2), (c.torch / c.slang).toFixed(1) + "×"]));
+})();
+
+/* 5. memory */
+(() => {
+  const root = document.getElementById("c-mem");
+  head(root, "Peak GPU memory, 1080p default", "Torch allocator peak reserve vs Slang buffer-pool peak, MiB.",
+    [["torch", "--torch"], ["Slang", "--slang"]]);
+  const rows = [...DATA.mem].sort((a, b) => b.mib - a.mib).map(m => ({
+    label: LABEL[m.path], v: m.mib, c: isSlang(m.path) ? "--slang" : "--torch", tip: `${LABEL[m.path]}\n${m.mib.toFixed(1)} MiB peak`
+  }));
+  hbars(root, rows, "MiB", { step: 500, max: 1550, aria: "Peak GPU memory at 1080p" });
+  table(root, ["path", "MiB"], DATA.mem.map(m => [LABEL[m.path], m.mib.toFixed(1)]));
+})();
+
+/* 6. kernel breakdown */
+(() => {
+  const root = document.getElementById("c-kern");
+  head(root, "Where Slang CUDA spends 1080p", "GPU time per kernel (profiled run), ms.");
+  const rows = DATA.kernels.slice(0, 10).map(k => ({
+    label: k.name, v: k.ms, c: "--slang", tip: `${k.name}\n${k.ms.toFixed(3)} ms over ${k.calls} dispatch${k.calls > 1 ? "es" : ""}`
+  }));
+  hbars(root, rows, "ms", { step: 0.5, max: 1.5, aria: "Slang CUDA kernel breakdown at 1080p" });
+  table(root, ["kernel", "ms", "dispatches"], DATA.kernels.map(k => [k.name, k.ms.toFixed(3), k.calls]));
+})();
+
+/* 7. CPU */
+(() => {
+  const root = document.getElementById("c-cpu");
+  head(root, "CPU, 512², every setting", "torch on CPU vs native Slang CPU (Slang-generated C++, OpenMP group dispatch), median ms, log scale.",
+    [["torch CPU", "--torch"], ["Slang CPU", "--slang"]]);
+  const rows = [...DATA.cpu].sort((a, b) => b.torch / b.slang - a.torch / a.slang).map(c => ({
+    label: CASE[c.case], torch: c.torch, slang: c.slang, tname: "torch CPU", sname: "Slang CPU"
+  }));
+  dumbbell(root, rows, 10, 500, "CPU time per setting at 512");
+  table(root, ["setting", "torch CPU ms", "Slang CPU ms", "speed-up"], DATA.cpu.map(c => [CASE[c.case], c.torch.toFixed(1), c.slang.toFixed(1), (c.torch / c.slang).toFixed(1) + "×"]));
+})();
+
+/* tooltip */
+(() => {
+  const t = document.getElementById("tip");
+  document.addEventListener("pointermove", (e) => {
+    const m = e.target.closest && e.target.closest("[data-tip]");
+    if (!m) { t.hidden = true; return; }
+    t.textContent = m.dataset.tip;
+    t.hidden = false;
+    const x = Math.min(e.clientX + 14, window.innerWidth - t.offsetWidth - 8);
+    t.style.left = x + "px";
+    t.style.top = (e.clientY + 14) + "px";
+  });
+})();
+</script>
