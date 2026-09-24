@@ -23,7 +23,7 @@ def test_contrast_register_entry_matches_generic(backend, p):
     outs = []
     for entry, extra in (
         ("contrast_downscale", {"p": p}),
-        (f"contrast_downscale_p{p}", {}),
+        (f"contrast_downscale_p{p}", {"up": 0}),
     ):
         dst = ctx.empty(shape)
         ctx.dispatch(
@@ -72,8 +72,9 @@ def test_fused_morph_matches_pass_chain(backend, thickness, monkeypatch):
     got = [host(ctx, a, img) for a in fused]
     ref = [host(ctx, a, img) for a in chain]
     ctx.release(arr)
-    assert compare(got[0], ref[0])["max"] == 0.0
-    assert compare(got[1], ref[1])["max"] == 0.0
+    # a few ulp: DXC contracts v - k + 1 differently in the fused kernel
+    assert compare(got[0], ref[0])["max"] <= 1e-6
+    assert compare(got[1], ref[1])["max"] <= 1e-6
 
 
 @pytest.mark.parametrize("backend", all_backends())
