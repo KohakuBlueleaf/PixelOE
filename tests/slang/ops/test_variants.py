@@ -92,6 +92,21 @@ def test_error_diffusion_shared_matches_global(backend, shape, monkeypatch):
     assert compare(shared, ref)["max"] == 0.0
 
 
+@pytest.mark.parametrize("backend", [b for b in all_backends() if b != "cpu"])
+@pytest.mark.parametrize("count", [1, 100, 4096, 30000])
+def test_repeat_table_group_matches_portable(backend, count, monkeypatch):
+    ctx = shared_context(backend)
+    rng = np.random.default_rng(count)
+    w = rng.random((2, count)).astype(np.float32)
+    w[:, ::7] = w[:, :1]  # equal weights -> equal remainders (tie handling)
+    weights = ctx.constant(w)
+    group = ctx.download(quant.repeat_table(ctx, weights, count))
+    monkeypatch.setattr(quant, "GROUP_SELECT", False)
+    portable = ctx.download(quant.repeat_table(ctx, weights, count))
+    assert np.array_equal(group, portable)
+    assert (group.sum(1) == 4 * count).all()
+
+
 @pytest.mark.parametrize("backend", all_backends())
 @pytest.mark.parametrize("rank", [1, 3])
 def test_lowrank_specialised_passes_match_generic(backend, rank, monkeypatch):

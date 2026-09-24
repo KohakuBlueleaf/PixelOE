@@ -12,6 +12,8 @@ WEIGHTS = "quant/weights"
 KMEANS = "quant/kmeans"
 KMEANS_GROUP = "quant/kmeans_group"  # groupshared: GPU backends only
 REPEAT = "quant/repeat"
+REPEAT_GROUP = "quant/repeat_group"  # groupshared: GPU backends only
+GROUP_SELECT = True  # GPU: repeat_group's one-dispatch selection (else portable)
 DITHER = "dither/dither"
 ED_GROUP = "dither/ed_group"  # workgroup barriers: GPU backends only
 ED_SHARED_CAP = 8000  # ed_group.slang SHARED_CAP (floats): 12 W + 3 K must fit
@@ -101,6 +103,20 @@ def repeat_table(ctx, weights, count):
     )
     fl_sum = seg_sum(ctx, fl, b, count)
     ctx.release(lw, lmax, e, sumexp)
+
+    if ctx.backend != "cpu" and GROUP_SELECT:  # one workgroup per image
+        ctx.dispatch(
+            REPEAT_GROUP,
+            "rp_select_group",
+            (b * 1024,),
+            rem=rem,
+            fl_sum=fl_sum,
+            repeat=repeat,
+            count=count,
+            extra=extra,
+        )
+        ctx.release(fl_sum, rem)
+        return repeat
 
     state = ctx.empty((b, 4), "uint32")
     ctx.dispatch(
