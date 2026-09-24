@@ -1,6 +1,8 @@
 import torch
 import torch.nn.functional as F
 
+from ..backend import requested_backend
+
 from .outline import outline_expansion, expansion_weight
 from .color import match_color, quantize_and_dither
 
@@ -10,6 +12,12 @@ from .sharpen.laplacian import laplacian_sharpen
 from .downscale.contrast_based import contrast_downscale
 from .downscale.k_centroid import k_centroid_downscale_torch
 from .downscale.lanczos import lanczos_resize
+
+try:
+    from ..slang.auto import select_context
+    from ..slang.pixelize import pixelize as slang_pixelize
+except (ImportError, OSError):  # slangpy missing or its native runtime failed
+    select_context = None
 
 
 def pixelize(
@@ -28,11 +36,40 @@ def pixelize(
     return_intermediate=False,
     weight_mapping="current",
     weight_normalize="global",
+    *,
+    backend=None,
 ):
     """
-    Main pipeline: pixelize an image using PyTorch.
+    Main pipeline: pixelize an image.
         img_t: Input RGB image tensor [B,C,H,W] with range [0..1]
+        backend: "auto" (default, or $PIXELOE_BACKEND): the fastest Slang
+            compute-shader backend usable for img_t's device, else the torch
+            pipeline; "torch"; or a Slang backend ("cuda", "vulkan", "d3d12",
+            "cpu") - see pixeloe.slang.auto.
     """
+    requested = requested_backend(backend)
+    if select_context is None and requested not in ("auto", "torch"):
+        raise RuntimeError(f"backend {requested!r} needs slangpy (pixeloe[slang])")
+    ctx = select_context(img_t, requested) if select_context is not None else None
+    if ctx is not None:
+        return slang_pixelize(
+            img_t,
+            pixel_size=pixel_size,
+            thickness=thickness,
+            mode=mode,
+            sharpen_mode=sharpen_mode,
+            sharpen_factor=sharpen_factor,
+            do_color_match=do_color_match,
+            do_quant=do_quant,
+            num_colors=num_colors,
+            quant_mode=quant_mode,
+            dither_mode=dither_mode,
+            no_post_upscale=no_post_upscale,
+            return_intermediate=return_intermediate,
+            weight_mapping=weight_mapping,
+            weight_normalize=weight_normalize,
+            context=ctx,
+        )
     quant_mode = quant_mode.lower()
     weighted_quant = do_quant and quant_mode in {"weighted-kmeans", "repeat-kmeans"}
     repeat_mode = quant_mode == "repeat-kmeans"
