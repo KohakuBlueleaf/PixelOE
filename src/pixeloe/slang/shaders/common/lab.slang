@@ -52,6 +52,12 @@ public float3 rgb_to_lab(float3 rgb)
     return float3(116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz));
 }
 
+// rgb_to_lab(rgb).x / 100 (the luminance map of the outline statistics)
+public float rgb_to_lum(float3 rgb)
+{
+    return rgb_to_lab(rgb).x / 100.0;
+}
+
 public float3 lab_to_rgb(float3 lab)
 {
     float fy = (lab.x + 16.0) / 116.0;

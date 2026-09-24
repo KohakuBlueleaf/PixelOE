@@ -71,6 +71,55 @@ void sliding_median(
     out_stat[keys.base + y * width + x] = radix_median(keys);
 }
 
+// sliding_median for a compile-time window size K: keys in registers
+void sliding_median_regs<let K : int>(
+    uint3 tid,
+    StructuredBuffer<float> lum,
+    RWStructuredBuffer<float> out_stat,
+    uint height,
+    uint width,
+    uint pad_mode)
+{
+    uint x = tid.x;
+    uint y = tid.y;
+    uint b = tid.z;
+    if (x >= width || y >= height)
+        return;
+    uint base = b * height * width;
+    int y0 = int(y) - K / 2;
+    int x0 = int(x) - K / 2;
+    uint keys[K * K];
+    [unroll]
+    for (int dy = 0; dy < K; dy++)
+    {
+        [unroll]
+        for (int dx = 0; dx < K; dx++)
+            keys[dy * K + dx] = float_to_ordered(
+                fetch(lum, base, y0 + dy, x0 + dx, height, width, pad_mode));
+    }
+    out_stat[base + y * width + x] = register_median<K * K>(keys);
+}
+
+#define SLIDING_MEDIAN_K(NAME, K)                                           \
+    [shader("compute")]                                                     \
+    [numthreads(16, 16, 1)]                                                 \
+    void NAME(                                                              \
+        uint3 tid: SV_DispatchThreadID,                                     \
+        uniform StructuredBuffer<float> lum,                                \
+        uniform RWStructuredBuffer<float> out_stat,                         \
+        uniform uint height,                                                \
+        uniform uint width,                                                 \
+        uniform uint pad_mode)                                              \
+    {                                                                       \
+        sliding_median_regs<K>(tid, lum, out_stat, height, width, pad_mode);\
+    }
+
+SLIDING_MEDIAN_K(sliding_median_k4, 4)
+SLIDING_MEDIAN_K(sliding_median_k6, 6)
+SLIDING_MEDIAN_K(sliding_median_k8, 8)
+SLIDING_MEDIAN_K(sliding_median_k10, 10)
+SLIDING_MEDIAN_K(sliding_median_k12, 12)
+
 // Separable window min / max. Row pass over columns [x - K/2, x - K/2 + K)
 // of the padded image; column pass over rows of the row-pass result, where
 // an out-of-image row is a row of padding (zeros, or the replicated edge).

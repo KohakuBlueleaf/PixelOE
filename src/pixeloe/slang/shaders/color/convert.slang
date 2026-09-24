@@ -18,8 +18,7 @@ void luminance(
         return;
     uint b = q / hw;
     uint base = b * 3 * hw + (q - b * hw);
-    float3 lab = rgb_to_lab(float3(img[base], img[base + hw], img[base + 2 * hw]));
-    lum[q] = lab.x / 100.0;
+    lum[q] = rgb_to_lum(float3(img[base], img[base + hw], img[base + 2 * hw]));
 }
 
 // lab[b, c, pix] = rgb_to_lab(img[b, :, pix])[c]

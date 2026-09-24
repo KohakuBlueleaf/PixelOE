@@ -73,3 +73,42 @@ public float radix_median<S : IKeySource>(S src)
 {
     return ordered_to_float(radix_select(src, (src.count() - 1) / 2));
 }
+
+// k-th smallest (0-based) of N keys held in registers (N compile-time):
+// the largest v with #{keys < v} <= k, built bit by bit from the highest bit
+// where the minimum and maximum key differ. Branch-free compares only.
+public uint register_select<let N : int>(uint keys[N], uint k)
+{
+    uint lo = keys[0];
+    uint hi = keys[0];
+    [unroll]
+    for (int i = 1; i < N; i++)
+    {
+        lo = min(lo, keys[i]);
+        hi = max(hi, keys[i]);
+    }
+    if (lo == hi)
+        return lo;
+    // highest differing bit; firstbithigh reads bit 31 as a sign on some targets
+    uint diff = lo ^ hi;
+    int top = 31;
+    while ((diff >> uint(top)) == 0u)
+        top--;
+    uint ans = lo & ~((2u << uint(top)) - 1u);
+    for (int bit = top; bit >= 0; bit--)
+    {
+        uint cand = ans | (1u << uint(bit));
+        uint below = 0;
+        [unroll]
+        for (int i = 0; i < N; i++)
+            below += keys[i] < cand ? 1u : 0u;
+        if (below <= k)
+            ans = cand;
+    }
+    return ans;
+}
+
+public float register_median<let N : int>(uint keys[N])
+{
+    return ordered_to_float(register_select<N>(keys, uint(N - 1) / 2));
+}

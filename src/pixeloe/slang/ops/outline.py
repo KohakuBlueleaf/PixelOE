@@ -12,6 +12,29 @@ MORPH = "outline/morph"
 
 SLIDING = "outline/sliding"
 
+# window sizes with register-resident selection entry points
+# (lattice_median_k<K>, sliding_median_k<K>); others use the radix select
+REGISTER_MEDIAN_SIZES = (4, 6, 8, 10, 12)
+# k (= pixel size) with a one-pass median + min/max entry (lattice_stats_h<k>);
+# even k centres the min/max patch in the median patch on one shared lattice
+FUSED_STATS_HALVES = (2, 4, 6)
+
+MORPH_FUSED = "outline/morph_fused"  # groupshared: GPU backends only
+MORPH_TILE = 32  # morph_fused.slang TILE (outputs per side, 32 x 8 threads)
+MORPH_IMG_CAP = 3072  # morph_fused.slang IMG_CAP / BUF_CAP (floats)
+MORPH_BUF_CAP = 2400
+# (blend, open) element sizes with compile-time entries oe_morph_fused_b<B>o<O>
+MORPH_FIXED_SIZES = ((3, 3), (5, 3), (5, 5), (7, 5))
+
+
+def morph_fused_fits(ks_erode, ks_dilate, ks_open):
+    ro = ks_open // 2
+    rb = max(ks_erode, ks_dilate) // 2
+    image_side = MORPH_TILE + 2 * (4 * ro + rb)
+    buffer_side = MORPH_TILE + 8 * ro
+    return image_side**2 <= MORPH_IMG_CAP and buffer_side**2 <= MORPH_BUF_CAP
+
+
 MAPPINGS = {"current": 0, "polarity": 0, "contrast_ratio": 1, "contrast_gated": 2}
 NORMALIZE = {"none": 0, "global": 1, "per_image": 2}
 LOCAL_STATS = ("lattice", "sliding")
@@ -23,6 +46,11 @@ def structuring_element(ctx, iters):
     table = KERNELS[iters].numpy().astype(np.float32)
     arr = ctx.cached_constant(("se", iters), lambda: table)
     return arr, table.shape[0]
+
+
+def median_entry(prefix, ksize):
+    """Register-resident entry for ksize when there is one, else the generic."""
+    return f"{prefix}_k{ksize}" if ksize in REGISTER_MEDIAN_SIZES else prefix
 
 
 def _lattice(ctx, lum, entry, ksize, stride, pad, outputs):
@@ -47,14 +75,53 @@ def _lattice(ctx, lum, entry, ksize, stride, pad, outputs):
     return arrays, lat_h, lat_w
 
 
-def _lattice_weight(ctx, lum, raw, lc, k, stride, mapping_id, scales):
-    b, h, w = lum.shape
+def _lattice_stats(ctx, img, k, stride):
+    """(median lattice, min/max lattices, sizes) of the outline statistics:
+    luminance, then one fused pass for k in FUSED_STATS_HALVES, else a
+    median pass and a min/max pass."""
+    b, _, h, w = img.shape
+    lum = luminance(ctx, img)
+    if k in FUSED_STATS_HALVES:
+        lat_h = h // stride + 1
+        lat_w = w // stride + 1
+        med = {"out_stat": ctx.empty((b, lat_h, lat_w))}
+        mm = {"out_min": ctx.empty((b, lat_h, lat_w))}
+        mm["out_max"] = ctx.empty((b, lat_h, lat_w))
+        ctx.dispatch(
+            LATTICE,
+            f"lattice_stats_h{k}",
+            (lat_w, lat_h, b),
+            lum=lum,
+            out_med=med["out_stat"],
+            out_min=mm["out_min"],
+            out_max=mm["out_max"],
+            height=h,
+            width=w,
+            stride=stride,
+            lat_h=lat_h,
+            lat_w=lat_w,
+        )
+        ctx.release(lum)
+        return med, mm, (lat_h, lat_w), (lat_h, lat_w)
     med, med_h, med_w = _lattice(
-        ctx, lum, "lattice_median", 2 * k, stride, k, ("out_stat",)
+        ctx,
+        lum,
+        median_entry("lattice_median", 2 * k),
+        2 * k,
+        stride,
+        k,
+        ("out_stat",),
     )
     mm, mm_h, mm_w = _lattice(
         ctx, lum, "lattice_minmax", k, stride, k // 2, ("out_min", "out_max")
     )
+    ctx.release(lum)
+    return med, mm, (med_h, med_w), (mm_h, mm_w)
+
+
+def _lattice_weight(ctx, img, raw, lc, k, stride, mapping_id, scales):
+    b, _, h, w = img.shape
+    med, mm, (med_h, med_w), (mm_h, mm_w) = _lattice_stats(ctx, img, k, stride)
     ctx.dispatch(
         WEIGHT,
         "weight_raw",
@@ -86,9 +153,9 @@ def _sliding_weight(ctx, lum, raw, lc, k, pad_mode, mapping_id, scales):
     grid = (w, h, b)
     dims = {"height": h, "width": w, "pad_mode": pad_mode}
     med = ctx.empty(lum.shape)
-    ctx.dispatch(
-        SLIDING, "sliding_median", grid, lum=lum, out_stat=med, ksize=2 * k, **dims
-    )
+    entry = median_entry("sliding_median", 2 * k)
+    extra = {} if entry != "sliding_median" else {"ksize": 2 * k}
+    ctx.dispatch(SLIDING, entry, grid, lum=lum, out_stat=med, **dims, **extra)
     row_min, row_max = ctx.empty(lum.shape), ctx.empty(lum.shape)
     ctx.dispatch(
         SLIDING,
@@ -168,18 +235,18 @@ def expansion_weight(
     if local_stats not in LOCAL_STATS:
         raise ValueError(f"Unsupported local statistics: {local_stats}")
     b, _, h, w = img.shape
-    lum = luminance(ctx, img)
     mapping_id = MAPPINGS[mapping]
     raw = ctx.empty((b, h, w))
     lc = ctx.empty((b, h, w)) if mapping_id == 2 else raw
     scales = {"avg_scale": np.float32(avg_scale), "dist_scale": np.float32(dist_scale)}
     if local_stats == "lattice":
-        _lattice_weight(ctx, lum, raw, lc, k, stride, mapping_id, scales)
+        _lattice_weight(ctx, img, raw, lc, k, stride, mapping_id, scales)
     else:
+        lum = luminance(ctx, img)
         _sliding_weight(
             ctx, lum, raw, lc, k, STAT_PADDING[stat_padding], mapping_id, scales
         )
-    ctx.release(lum)
+        ctx.release(lum)
 
     if mapping_id == 2:
         total = b * h * w
@@ -277,8 +344,36 @@ def outline_expansion(
     )
     se_e, ks_e = structuring_element(ctx, erode_iters)
     se_d, ks_d = structuring_element(ctx, dilate_iters)
-    blended = ctx.empty(img.shape)
+    oc_iter = max(erode_iters - 1, dilate_iters - 1, 1)
     weight = ctx.empty((b, h, w))
+    se_o, ks_o = structuring_element(ctx, oc_iter)
+    if ctx.backend != "cpu" and morph_fused_fits(ks_e, ks_d, ks_o):
+        out = ctx.empty(img.shape)
+        sizes = {"ks_erode": ks_e, "ks_dilate": ks_d, "ks_open": ks_o}
+        entry = "oe_morph_fused"
+        if ks_e == ks_d and (ks_e, ks_o) in MORPH_FIXED_SIZES:
+            entry, sizes = f"oe_morph_fused_b{ks_e}o{ks_o}", {}
+        ctx.dispatch(
+            MORPH_FUSED,
+            entry,
+            (-(-w // MORPH_TILE) * 32, -(-h // MORPH_TILE) * 8, b * c),
+            img=img,
+            w_raw=rw.raw,
+            wmin=rw.wmin,
+            wmax=rw.wmax,
+            se_erode=se_e,
+            se_dilate=se_d,
+            se_open=se_o,
+            dst=out,
+            w_out=weight,
+            height=h,
+            width=w,
+            norm_mode=rw.norm_mode,
+            **sizes,
+        )
+        rw.release()
+        return out, weight
+    blended = ctx.empty(img.shape)
     ctx.dispatch(
         MORPH,
         "oe_blend",
@@ -299,7 +394,6 @@ def outline_expansion(
     )
     rw.release()
 
-    oc_iter = max(erode_iters - 1, dilate_iters - 1, 1)
     steps = (("erode", False), ("dilate", False), ("dilate", True), ("erode", False))
     cur = blended
     for mode, do_clamp in steps:
