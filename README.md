@@ -18,6 +18,7 @@ PixelOE is a Python library that generates high-quality pixel art from standard 
 * **Color Palette Optimization:** Option to quantize color palettes for a classic pixel art aesthetic.
 * **Fast Pure Pytorch implementation** Achieving over 180img/sec (bs1) on RTX4090 with 1920x1080 input and 480x270 output
 * **GPU Free**: All the core logic can be used without GPU.
+* **Slang Compute-Shader Backend:** The whole pipeline is also implemented as [Slang](https://shader-slang.org) compute kernels (CUDA / Vulkan / D3D12 / native CPU). It gives the same results as the torch pipeline and is 5-10x faster on GPU and ~3x faster on CPU. `pixelize()` picks the fastest backend that works on your machine automatically.
 
 ## Usage
 
@@ -45,6 +46,8 @@ To utilize this package in your code or utilize its CLI implementation, you need
 ```bash
 pip install pixeloe
 ```
+
+This also installs [slangpy](https://github.com/shader-slang/slangpy) (the Slang backend) on Windows x64, Linux x64/arm64 and macOS 26+ on Apple Silicon. On other platforms PixelOE runs the torch pipeline.
 
 ### Command Line Interface (CLI)
 
@@ -148,6 +151,29 @@ result_img = Image.fromarray(to_numpy(result)[0])
 result_img.save("img/snow-leopard-pixel.webp")
 ```
 
+Backend selection (torch API): `pixelize()` runs on the fastest [Slang backend](#slang-backend) that works for the input tensor's device, and falls back to the torch pipeline otherwise. To choose one explicitly, pass `backend=` or set the `PIXELOE_BACKEND` environment variable:
+
+```python
+result = pixelize(img, pixel_size=4, thickness=3)                   # "auto"
+result = pixelize(img, pixel_size=4, thickness=3, backend="torch")  # torch pipeline
+result = pixelize(img, pixel_size=4, thickness=3, backend="vulkan") # cuda / vulkan / d3d12 / cpu
+```
+
+Slang API (backend contexts, extra options such as sliding-window outline statistics):
+
+```python
+from pixeloe.slang import pixelize, get_context
+
+result = pixelize(img, pixel_size=4, thickness=3, context=get_context("cuda"))
+result = pixelize(img, pixel_size=4, thickness=3, local_stats="sliding")
+```
+
+Slang CLI:
+
+```bash
+pixeloe.slang img/snow-leopard.webp out.png --backend cuda --target-size 256 --pixel-size 4
+```
+
 ## Example
 
 ### Outline Expansion
@@ -237,6 +263,37 @@ By adaptively selecting the most representative pixel for each local area, the d
 
 * **Color Palette Optimization:** You can reduce the number of colors using k-means clustering or maxcover method for a more classic pixel art look.
 * **Color Matching:** Optionally transfer the color palette from the original image.
+
+## Slang Backend
+
+`pixeloe.slang` implements the full pipeline as Slang compute kernels, written against the torch pipeline and tested against it. It covers outline expansion, every downscale mode, color matching, sharpening, k-means quantization and ordered / error-diffusion dithering. The same shader source runs on:
+
+| backend | device | notes |
+| --- | --- | --- |
+| `cuda` | NVIDIA GPU | shares torch's CUDA context and stream, zero-copy; compiles through NVRTC (needs the CUDA toolkit) |
+| `vulkan` / `d3d12` | any GPU | CUDA-shared buffers on NVIDIA; other adapters (e.g. Intel Arc: `"d3d12:B50"`) go through host staging |
+| `cpu` | CPU | Slang-generated C++ kernels on an OpenMP thread pool (Windows, needs MSVC) |
+
+In `"auto"` mode, CUDA tensors try `cuda` → `vulkan` → `d3d12` and CPU tensors try `cpu`. Each backend is checked once per process with a small test image. If none works, the torch pipeline runs.
+
+How it matches the torch pipeline:
+
+* Order-independent integer (fixed-point) sums make k-means and k-centroid deterministic on every backend.
+* Exact median selection, and the torch pipeline's padding and rounding behavior.
+* Differences are limited to floating-point rounding, plus k-centroid blocks whose two clusters are the same size. There the Slang backend deterministically picks the first cluster.
+
+Speed-up over the fastest torch variant (fp16 / fp32, eager / `torch.compile`) on an RTX 4090, over 5 sizes × 18 settings:
+
+| Slang backend | median | range |
+| --- | --- | --- |
+| cuda | 8.5x | 2.2x - 20.6x |
+| vulkan | 7.0x | 2.2x - 20.9x |
+| d3d12 | 6.6x | 1.7x - 18.2x |
+| cpu (vs torch CPU) | 3.0x | 1.8x - 6.2x |
+
+![slang vs torch](benchmarks/slang_vs_torch/figures/fig_overview.png)
+
+Full benchmark scripts and figures (scaling, memory, CPU thread count, other GPUs) are in [benchmarks/slang_vs_torch](benchmarks/slang_vs_torch).
 
 ## Acknowledgement
 
