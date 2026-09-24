@@ -19,11 +19,16 @@ dependencies = [
     "torch",
     "torchvision",
     "kornia",
+    # Slang compute-shader backend (pixeloe.slang), on every platform slangpy
+    # ships wheels for (macOS arm64 wheels need macOS 26 = Darwin 25);
+    # elsewhere pixelize() runs the torch pipeline.
+    "slangpy>=0.43.1; (sys_platform == 'win32' and platform_machine == 'AMD64') or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'darwin' and platform_machine == 'arm64' and platform_release >= '25')",
 ]
 
 [project.optional-dependencies]
+# requests slangpy where the marker above leaves it out
 slang = [
-    "slangpy",
+    "slangpy>=0.43.1",
 ]
 gradio = [
     "gradio>=4.0.0",
@@ -40,10 +45,12 @@ all = [
     "pywebview",
 ]
 dev = [
+    "black",
     "build",
     "pytest",
     "pytest-cov",
     "ruff",
+    "twine",
 ]
 
 [project.urls]
@@ -53,6 +60,7 @@ Repository = "https://github.com/KohakuBlueleaf/PixelOE"
 [project.scripts]
 "pixeloe.pixelize" = "pixeloe.cli_legacy:pixelize"
 "pixeloe.outline" = "pixeloe.cli_legacy:outline"
+"pixeloe.slang" = "pixeloe.slang.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -69,6 +77,11 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+
+[tool.ruff.lint]
+# Breakage only (syntax, undefined names); formatting is black's job. Pinned so
+# a ruff release that widens its default rule set cannot turn CI red.
+select = ["E9", "F63", "F7", "F82"]
 
 [tool.ruff.lint.per-file-ignores]
 "nodes/pixel.py" = ["E402", "E731"]
