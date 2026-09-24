@@ -2,13 +2,14 @@
 cores; buffers are host numpy arrays. Same interface as runtime.Context."""
 
 import ctypes
+import math
 import time
 from collections import defaultdict
 
 import numpy as np
 import torch
 
-from ..context import ROW_LEN, ContextStats, DeviceArray, _round_capacity
+from ..context import ROW_LEN, ContextStats, DeviceArray, _round_capacity, as_dtype
 from ..paths import cache_root
 from .kernels import BufferRef, KernelLibrary
 from .toolchain import ISAS, build_dispatcher
@@ -59,9 +60,9 @@ class CpuContext:
 
     # ------------------------------------------------------------------ buffers
     def empty(self, shape, dtype=np.float32):
-        dtype = np.dtype(dtype)
+        dtype = as_dtype(dtype)
         shape = tuple(int(s) for s in shape)
-        nbytes = max(int(np.prod(shape)) * dtype.itemsize, 16)
+        nbytes = max(math.prod(shape) * dtype.itemsize, 16)
         capacity = _round_capacity(nbytes)
         free = self._free[capacity]
         if free:
@@ -145,8 +146,17 @@ class CpuContext:
         if all(groups):
             self.dispatcher.pixeloe_dispatch(kernel.fn, *groups, ctypes.byref(args))
         if self.profile:
-            self.stats.per_kernel_ms[entry] += (time.perf_counter() - t0) * 1e3
+            ms = (time.perf_counter() - t0) * 1e3
+            self.stats.per_kernel_ms[entry] += ms
             self.stats.per_kernel_calls[entry] += 1
+            self.stats.dispatch_log.append(
+                {
+                    "name": entry,
+                    "threads": tuple(threads),
+                    "group": tuple(kernel.numthreads),
+                    "ms": ms,
+                }
+            )
         self.stats.dispatches += 1
 
     def dispatch_flat(self, module, entry, items, /, **params):

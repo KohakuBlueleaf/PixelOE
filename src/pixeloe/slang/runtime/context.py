@@ -3,6 +3,7 @@ interop and GPU-timestamp profiling."""
 
 import atexit
 import gc
+import math
 import weakref
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -49,7 +50,7 @@ class DeviceArray:
 
     @property
     def numel(self):
-        return int(np.prod(self.shape)) if self.shape else 1
+        return math.prod(self.shape)
 
     @property
     def nbytes(self):
@@ -60,6 +61,7 @@ class DeviceArray:
 class DispatchRecord:
     name: str
     threads: tuple
+    group: tuple  # workgroup size of the entry point
     query: object  # timestamp query index, or (start, end) CUDA events
 
 
@@ -75,6 +77,8 @@ class ContextStats:
     allocations: int = 0
     per_kernel_ms: dict = field(default_factory=lambda: defaultdict(float))
     per_kernel_calls: dict = field(default_factory=lambda: defaultdict(int))
+    # profiling contexts: one {name, threads, group, ms} per dispatch, in order
+    dispatch_log: list = field(default_factory=list)
 
     def reset_peaks(self):
         self.peak_live_bytes = self.live_bytes
@@ -84,6 +88,7 @@ class ContextStats:
         self.allocations = 0
         self.per_kernel_ms = defaultdict(float)
         self.per_kernel_calls = defaultdict(int)
+        self.dispatch_log = []
 
 
 _TORCH_DTYPES = {
@@ -169,11 +174,16 @@ class Context:
             self._kernels[key] = k
         return k
 
+    def group_size(self, module, entry):
+        """Workgroup size of an entry point, from its reflection."""
+        layout = self.kernel(module, entry).program.layout
+        return tuple(int(v) for v in layout.entry_points[0].compute_thread_group_size)
+
     # ------------------------------------------------------------------ buffers
     def empty(self, shape, dtype=np.float32):
-        dtype = np.dtype(dtype)
+        dtype = as_dtype(dtype)
         shape = tuple(int(s) for s in shape)
-        nbytes = max(int(np.prod(shape)) * dtype.itemsize, 16)
+        nbytes = max(math.prod(shape) * dtype.itemsize, 16)
         capacity = _round_capacity(nbytes)
         free = self._free[capacity]
         if free:
@@ -321,7 +331,14 @@ class Context:
             kernel.dispatch(thread_count=threads, command_encoder=self._enc(), **args)
             self.flush()
             end.record()
-            self._records.append(DispatchRecord(entry, tuple(threads), (start, end)))
+            self._records.append(
+                DispatchRecord(
+                    entry,
+                    tuple(threads),
+                    self.group_size(module, entry),
+                    (start, end),
+                )
+            )
         elif self.profile:
             q = self._query_next
             if q + 2 > self.MAX_QUERIES:
@@ -334,7 +351,9 @@ class Context:
                 query_index_after=q + 1,
                 **args,
             )
-            self._records.append(DispatchRecord(entry, tuple(threads), q))
+            self._records.append(
+                DispatchRecord(entry, tuple(threads), self.group_size(module, entry), q)
+            )
             self._query_next += 2
         else:
             kernel.dispatch(thread_count=threads, command_encoder=enc, **args)
@@ -398,6 +417,14 @@ class Context:
                     ms = (seconds[rec.query + 1] - seconds[rec.query]) * 1e3
                 self.stats.per_kernel_ms[rec.name] += ms
                 self.stats.per_kernel_calls[rec.name] += 1
+                self.stats.dispatch_log.append(
+                    {
+                        "name": rec.name,
+                        "threads": rec.threads,
+                        "group": rec.group,
+                        "ms": ms,
+                    }
+                )
             self._records.clear()
             self._query_next = 0
             self._query_pool.reset()
@@ -454,6 +481,17 @@ def _pad_bytes(data, capacity):
     raw = np.zeros(capacity, dtype=np.uint8)
     raw[: data.nbytes] = data.reshape(-1).view(np.uint8)
     return raw
+
+
+_DTYPES = {}
+
+
+def as_dtype(dtype):
+    """np.dtype(dtype), memoised (it is on every allocation's path)."""
+    d = _DTYPES.get(dtype)
+    if d is None:
+        d = _DTYPES[dtype] = np.dtype(dtype)
+    return d
 
 
 def _round_capacity(nbytes):
