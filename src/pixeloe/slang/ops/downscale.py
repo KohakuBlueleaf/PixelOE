@@ -5,6 +5,8 @@ from .reduce import stop_diff
 
 CONTRAST = "downscale/contrast"
 KCENTROID = "downscale/kcentroid"
+KCENTROID_ATOMIC = "downscale/kcentroid_atomic"  # integer atomics: GPU only
+ATOMIC_STOP = True  # GPU: k-centroid stop value by atomic max (else reduction)
 
 KCENTROID_ITERS = 4  # max(2 * int(2 ** 0.5), 4)
 # block sizes with register-resident entry points (contrast_downscale_p<P>)
@@ -49,10 +51,28 @@ def k_centroid_downscale(ctx, img, p):
     grid = (out_w, out_h, b)
     dims = {"height": h, "width": w, "p": p, "out_h": out_h, "out_w": out_w}
     cent = ctx.empty((blocks, 8))
+    ctx.dispatch(KCENTROID, "kc_init", grid, img=img, cent=cent, **dims)
+    if ctx.backend != "cpu" and ATOMIC_STOP:  # one dispatch per iteration
+        diff_bits = ctx.empty((KCENTROID_ITERS,), "uint32")
+        ctx.clear_uint(diff_bits)
+        for it in range(KCENTROID_ITERS):
+            ctx.dispatch(
+                KCENTROID_ATOMIC,
+                "kc_iter_max",
+                grid,
+                img=img,
+                cent=cent,
+                diff_bits=diff_bits,
+                it=it,
+                **dims,
+            )
+        dst = ctx.empty((b, 3, out_h, out_w))
+        ctx.dispatch(KCENTROID, "kc_final", grid, img=img, cent=cent, dst=dst, **dims)
+        ctx.release(cent, diff_bits)
+        return dst
     item_diff = ctx.empty((blocks,))
     diff = ctx.empty((KCENTROID_ITERS,))
     ctx.clear_uint(diff)
-    ctx.dispatch(KCENTROID, "kc_init", grid, img=img, cent=cent, **dims)
     for it in range(KCENTROID_ITERS):
         ctx.dispatch(
             KCENTROID,

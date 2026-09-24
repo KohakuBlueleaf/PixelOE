@@ -107,6 +107,19 @@ def test_repeat_table_group_matches_portable(backend, count, monkeypatch):
     assert (group.sum(1) == 4 * count).all()
 
 
+@pytest.mark.parametrize("backend", [b for b in all_backends() if b != "cpu"])
+@pytest.mark.parametrize("p", [2, 4, 5])
+def test_k_centroid_atomic_stop_matches_reduction(backend, p, monkeypatch):
+    ctx = shared_context(backend)
+    img = photo(p * 23, p * 31, batch=2)
+    arr = dev(ctx, img)
+    fast = host(ctx, downscale.k_centroid_downscale(ctx, arr, p), img)
+    monkeypatch.setattr(downscale, "ATOMIC_STOP", False)
+    ref = host(ctx, downscale.k_centroid_downscale(ctx, arr, p), img)
+    ctx.release(arr)
+    assert compare(fast, ref)["max"] == 0.0
+
+
 @pytest.mark.parametrize("backend", all_backends())
 @pytest.mark.parametrize("rank", [1, 3])
 def test_lowrank_specialised_passes_match_generic(backend, rank, monkeypatch):
