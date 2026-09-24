@@ -6,25 +6,31 @@ import numpy as np
 import torch
 
 from ...torch.color import gaussian_kernel
-from .reduce import lab_moments
+from .reduce import lab_moments_pair
 
 CONVERT = "color/convert"
 MATCH = "color/match"
 BLUR = "color/blur"
 BLUR_TILED = "color/blur_tiled"  # groupshared: GPU backends only
+BLUR_LOWRANK = "color/blur_lowrank"
+BLUR_LOWRANK_SHARED = "color/blur_lowrank_shared"  # groupshared: GPU only
 
 WAVELET_LEVELS = 5
 BLUR_MODES = ("exact", "separable")
 # exact-kernel implementations: "tiled" (groupshared, GPU only), "sym"
-# (symmetric fold straight from memory), "direct" (plain 2-D loop)
-BLUR_IMPLS = ("tiled", "sym", "direct")
+# (symmetric fold straight from memory), "direct" (plain 2-D loop),
+# "lowrank" (rank-`blur_rank` SVD of the kernel as row/column passes)
+BLUR_IMPLS = ("tiled", "sym", "direct", "lowrank")
 # blur_tiled.slang entry points: radius -> (outputs per thread, thread rows)
 TILED_SHAPES = {2: (4, 4), 4: (4, 4), 8: (4, 4), 16: (8, 4), 32: (8, 2)}
 SYM_RADII = (2, 4, 8, 16, 32)  # blur.slang blur2d_sym_rN, 4 outputs per thread
+# blur_lowrank.slang lr_rows_rN / lr_cols_rN: LOWRANK_OUT outputs per thread
+LOWRANK_BLOCKED_RADII = (2, 4, 8, 16, 32)
+LOWRANK_OUT = 8
 
 
 def default_blur_impl(ctx):
-    return "sym" if ctx.backend == "cpu" else "tiled"
+    return "lowrank"
 
 
 def luminance(ctx, img):
@@ -68,13 +74,83 @@ def separable_blur_table(radius):
     return (k / k.sum()).astype(np.float32)
 
 
+@cache
+def lowrank_blur_tables(radius, rank):
+    """[rank row vectors, rank column vectors] (float32, singular values in
+    the columns) of the exact kernel's SVD, computed in float64. rank is
+    clipped to the kernel size, where the sum equals the kernel."""
+    k = 2 * radius + 1
+    table = exact_blur_table(radius).astype(np.float64).reshape(k, k)
+    u, s, vt = np.linalg.svd(table)
+    rank = min(rank, k)
+    rows = vt[:rank]
+    cols = (u[:, :rank] * s[:rank]).T
+    return np.concatenate([rows.reshape(-1), cols.reshape(-1)]).astype(np.float32)
+
+
 def blur_table(ctx, kind, radius):
     factory = exact_blur_table if kind == "exact" else separable_blur_table
     return ctx.cached_constant(("blur", kind, radius), lambda: factory(radius))
 
 
-def blur_level(ctx, src, dst, radius, add_src=None, blur="exact", impl=None):
-    """dst = add_src + blur_radius(src), reference padding rule."""
+def _blur_lowrank(ctx, src, dst, radius, add_src, rank, reflect):
+    b, c, h, w = src.shape
+    k = 2 * radius + 1
+    rank = min(rank, k)
+    tables = ctx.cached_constant(
+        ("blur_lowrank", radius, rank), lambda: lowrank_blur_tables(radius, rank)
+    )
+    blocked = radius in LOWRANK_BLOCKED_RADII
+    dims = {"height": h, "width": w, "reflect": reflect}
+    if not blocked:
+        dims["radius"] = radius
+    suffix = f"_r{radius}" if blocked else ""
+    out = LOWRANK_OUT if blocked else 1
+    if blocked and ctx.backend != "cpu":  # groupshared streaming passes
+        rows = (
+            BLUR_LOWRANK_SHARED,
+            f"lr_rows_shared_r{radius}",
+            (-(-w // (32 * LOWRANK_OUT)) * 32, -(-h // 4) * 4),
+        )
+        cols = (
+            BLUR_LOWRANK_SHARED,
+            f"lr_cols_shared_r{radius}",
+            (-(-w // 32) * 32, -(-h // (8 * LOWRANK_OUT)) * 8),
+        )
+    else:
+        rows = (BLUR_LOWRANK, f"lr_rows{suffix}", (-(-w // out), h))
+        cols = (BLUR_LOWRANK, f"lr_cols{suffix}", (w, -(-h // out)))
+    tmp = ctx.empty(src.shape)
+    for comp in range(rank):
+        ctx.dispatch(
+            rows[0],
+            rows[1],
+            (*rows[2], b * c),
+            src=src,
+            tmp=tmp,
+            tables=tables,
+            offset=comp * k,
+            **dims,
+        )
+        mode = 2 if comp else (1 if add_src is not None else 0)
+        ctx.dispatch(
+            cols[0],
+            cols[1],
+            (*cols[2], b * c),
+            tmp=tmp,
+            add_src=add_src if add_src is not None else src,
+            dst=dst,
+            tables=tables,
+            offset=(rank + comp) * k,
+            mode=mode,
+            **dims,
+        )
+    ctx.release(tmp)
+
+
+def blur_level(ctx, src, dst, radius, add_src=None, blur="exact", impl=None, rank=1):
+    """dst = add_src + blur_radius(src), reference padding rule.
+    rank: components of the "lowrank" impl (2 * radius + 1 = full kernel)."""
     b, c, h, w = src.shape
     planes = b * c
     reflect = 1 if (h > radius and w > radius) else 0
@@ -85,7 +161,9 @@ def blur_level(ctx, src, dst, radius, add_src=None, blur="exact", impl=None):
         raise ValueError(f"Unknown colour-fix blur impl: {impl}")
     if impl == "tiled" and ctx.backend == "cpu":
         raise ValueError("the tiled blur uses workgroup barriers: GPU backends only")
-    if blur == "exact":
+    if blur == "exact" and impl == "lowrank":
+        _blur_lowrank(ctx, src, dst, radius, add_src, rank, reflect)
+    elif blur == "exact":
         weights = blur_table(ctx, "exact", radius)
         if impl == "sym" and radius in SYM_RADII:
             ctx.dispatch(
@@ -165,14 +243,13 @@ def blur_level(ctx, src, dst, radius, add_src=None, blur="exact", impl=None):
         raise ValueError(f"Unknown colour-fix blur: {blur}")
 
 
-def match_color(ctx, src, tgt, level=WAVELET_LEVELS, blur="exact", impl=None):
+def match_color(ctx, src, tgt, level=WAVELET_LEVELS, blur="exact", impl=None, rank=1):
     """Reference match_color(src, tgt) -> new [B,3,H,W] array."""
     if level < 1:
         raise ValueError("match_color needs at least one wavelet level")
     b, _, h, w = src.shape
     stats = ctx.empty((4,))
-    lab_moments(ctx, src, stats, 0)
-    lab_moments(ctx, tgt, stats, 1)
+    lab_moments_pair(ctx, src, tgt, stats)
     inp = ctx.empty(src.shape)
     diff = ctx.empty(src.shape)
     ctx.dispatch_flat(
@@ -202,6 +279,7 @@ def match_color(ctx, src, tgt, level=WAVELET_LEVELS, blur="exact", impl=None):
             add_src=inp if last else None,
             blur=blur,
             impl=impl,
+            rank=rank,
         )
         ctx.release(cur)
         cur = nxt

@@ -34,6 +34,7 @@ def pixelize(
     backend=None,
     colorfix_blur="exact",
     blur_impl=None,
+    blur_rank=1,
     local_stats="lattice",
     stat_padding="zero",
     context=None,
@@ -44,13 +45,16 @@ def pixelize(
         local_stats    outline-weight statistics: "lattice" (reference:
                        patches at stride p/2, overlap-add averaged) or
                        "sliding" (exact per-pixel windows)
-        stat_padding   sliding windows outside the image: "zero" or "replicate"
-        backend        slang device type ("cuda", "d3d12", "vulkan", "cpu");
+        stat_padding   sliding windows outside the image: "zero" or "replicate"        backend        slang device type ("cuda", "d3d12", "vulkan", "cpu");
                        default follows the input tensor's device
         colorfix_blur  "exact" (reference float16 2-D kernel) or "separable"
-        blur_impl      exact-blur implementation: "tiled" (GPU groupshared),
-                       "sym" (symmetric fold) or "direct"; default tiled on
-                       GPU backends, sym on CPU
+        blur_impl      exact-kernel blur: "lowrank" (default; blur_rank SVD
+                       components of the kernel as row / column passes),
+                       "tiled" (full 2-D kernel, GPU groupshared), "sym"
+                       (full kernel, symmetric fold) or "direct"
+        blur_rank      components of "lowrank": 1 deviates from the full
+                       kernel by < 1e-3 (worst case, 5 levels); 2 r + 1 is
+                       the full kernel
         context        an explicit runtime.Context
     """
     ctx = context or get_context(backend, img_t)
@@ -72,8 +76,7 @@ def pixelize(
         keep_intermediate=return_intermediate,
         weight_mapping=weight_mapping,
         weight_normalize=weight_normalize,
-        colorfix_blur=colorfix_blur,
-        blur_impl=blur_impl,
+        blur={"blur": colorfix_blur, "impl": blur_impl, "rank": blur_rank},
         stats={"local_stats": local_stats, "stat_padding": stat_padding},
     )
     ctx.release(img)
@@ -108,12 +111,13 @@ def run(
     keep_intermediate,
     weight_mapping,
     weight_normalize,
-    colorfix_blur,
-    blur_impl,
+    blur=None,
     stats=None,
 ):
     """Device-side pipeline. Returns (out, expanded or None, weight or None);
-    the caller owns the returned arrays; `img` is not consumed."""
+    the caller owns the returned arrays; `img` is not consumed.
+    blur: match_color keyword arguments (blur, impl, rank)."""
+    blur = blur or {}
     quant_mode = quant_mode.lower()
     weighted_quant = do_quant and quant_mode in {"weighted-kmeans", "repeat-kmeans"}
     repeat_mode = quant_mode == "repeat-kmeans"
@@ -177,12 +181,17 @@ def run(
             ctx.release(full)
 
     if do_color_match:
-        matched = match_color(ctx, expanded, img, blur=colorfix_blur, impl=blur_impl)
+        matched = match_color(ctx, expanded, img, **blur)
         if expanded is not img:
             ctx.release(expanded)
         expanded = matched
 
+    upscaled = None
+    if mode == "contrast" and not do_quant and not no_post_upscale:
+        upscaled = contrast_downscale(ctx, expanded, p, upscale=True)
     match mode:
+        case "contrast" if upscaled is not None:
+            down = None
         case "contrast":
             down = contrast_downscale(ctx, expanded, p)
         case "k_centroid":
@@ -211,13 +220,15 @@ def run(
             dither_method=dither_mode.lower(),
             repeat_mode=repeat_mode,
         )
-        down_final = match_color(ctx, quant, down, blur=colorfix_blur, impl=blur_impl)
+        down_final = match_color(ctx, quant, down, **blur)
         ctx.release(quant, down)
     else:
         down_final = down
     ctx.release(weights)
 
-    if no_post_upscale:
+    if upscaled is not None:
+        out = upscaled
+    elif no_post_upscale:
         out = down_final
     else:
         out = upscale_nearest_exact(ctx, down_final, p)
