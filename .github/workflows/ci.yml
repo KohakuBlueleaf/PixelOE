@@ -6,30 +6,94 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LINT_PATHS: src nodes client tests experiments benchmarks scripts
+
 jobs:
-  test:
-    name: Python ${{ matrix.python-version }}
+  # black for formatting, ruff for the breakage-only rule set pinned in
+  # pyproject.toml.
+  lint:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install black ruff
+      - run: black --check --target-version py312 ${{ env.LINT_PATHS }}
+      - run: ruff check ${{ env.LINT_PATHS }}
+
+  # No GPU on hosted runners. Linux: the torch suite, with the Slang tests
+  # collected but given no backend (the native CPU backend needs MSVC).
+  # Windows: the same, plus the Slang conformance suite on the native CPU
+  # backend (MSVC ships with the runner image).
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+        include:
+          - os: ubuntu-latest
+            slang-backends: "none"
+          - os: windows-latest
+            slang-backends: "cpu"
+    env:
+      PIXELOE_SLANG_BACKENDS: ${{ matrix.slang-backends }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - name: Install package
+      - name: Install (CPU torch)
+        shell: bash
         run: |
-          python -m pip install -U pip
-          python -m pip install -e ".[dev]"
+          python -m pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
       - name: Syntax check
-        run: python -m compileall -q src nodes client/demo-gr.py demo.py demo-torch.py test_oe_diff.py experiments
-      - name: Ruff check
-        run: ruff check src nodes client tests experiments
+        run: python -m compileall -q src nodes client/demo-gr.py demo.py demo-torch.py experiments
       - name: Test
-        run: pytest
-      - name: Build package
-        run: python -m build
+        run: pytest -q
+
+  # The wheel users get: built once, installed into a clean venv, checked
+  # to carry every shader and to pixelize through the auto backend.
+  package:
+    name: package / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build sdist + wheel
+        shell: bash
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+      - name: Install the wheel into a clean venv and check it
+        shell: bash
+        run: |
+          python -m venv "${RUNNER_TEMP}/wheel-venv"
+          if [ -d "${RUNNER_TEMP}/wheel-venv/Scripts" ]; then
+            bin="${RUNNER_TEMP}/wheel-venv/Scripts"
+          else
+            bin="${RUNNER_TEMP}/wheel-venv/bin"
+          fi
+          "${bin}/python" -m pip install --upgrade pip
+          "${bin}/python" -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          "${bin}/python" -m pip install dist/*.whl
+          cd "${RUNNER_TEMP}"
+          "${bin}/python" "${GITHUB_WORKSPACE}/scripts/ci/package_check.py" --source "${GITHUB_WORKSPACE}"
