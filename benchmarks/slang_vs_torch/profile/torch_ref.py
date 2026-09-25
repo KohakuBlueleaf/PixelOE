@@ -1,6 +1,6 @@
 """Single-config timing of the torch pipeline (the reference for quick.py).
 
-usage: python torch_ref.py [--device cuda] [--dtype float16] [--compile]
+usage: python torch_ref.py [--device cuda|xpu|cpu] [--dtype float16] [--compile]
        [--size 1920x1080] [key=value ...]
 """
 
@@ -42,7 +42,10 @@ def main():
     img = Image.open(IMAGE).convert("RGB").resize((w, h), Image.BICUBIC)
     x = torch.from_numpy(np.asarray(img).copy()).permute(2, 0, 1).float() / 255
     x = x[None].contiguous().to(a.device, getattr(torch, a.dtype))
-    sync = torch.cuda.synchronize if x.is_cuda else (lambda: None)
+    sync = {
+        "cuda": torch.cuda.synchronize,
+        "xpu": lambda: torch.xpu.synchronize(),
+    }.get(x.device.type, lambda: None)
     for _ in range(3):  # compile
         pixelize(x, **kw)
     sync()
